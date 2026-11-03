@@ -48,6 +48,10 @@ export interface ExcelAdapter {
   ): Promise<EditorDialog>;
   /** Called inside that dialog: listens to the pane and returns how to send to it. */
   editorChannel(onMessage: (message: string) => void): (message: string) => void;
+  /** The saved text for this workbook, or null when it has none. */
+  loadState(): Promise<string | null>;
+  saveState(text: string): Promise<void>;
+  listSheets(): Promise<{ id: string; name: string }[]>;
   /** Excel's own theme, or null when it doesn't say. */
   officeDark(): boolean | null;
 }

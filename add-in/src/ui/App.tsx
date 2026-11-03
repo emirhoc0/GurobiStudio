@@ -1,14 +1,14 @@
 import { useEffect, useState } from "react";
-import { Badge, Button, Tab, TabList, Text } from "@fluentui/react-components";
+import { Badge, Tab, TabList, Text } from "@fluentui/react-components";
 import { getHealth, type Health } from "../core/api";
-import { runDiagnostics, type ProbeResult } from "../core/diagnostics";
 import { solve, stop } from "../core/solve";
 import { excel } from "../excel";
 import { ConfirmDialog, Notices } from "./ConfirmDialog";
 import { DataItemsTab } from "./DataItemsTab";
 import { ModelTab } from "./ModelTab";
 import { OutputTab } from "./OutputTab";
-import { setTab, useTab, type TabName } from "./store";
+import { SettingsTab } from "./SettingsTab";
+import { saveBlockedStore, setTab, useTab, type TabName } from "./store";
 import { Themed, useRunShortcuts } from "./Themed";
 
 function HelperStatus() {
@@ -26,35 +26,6 @@ function HelperStatus() {
   );
 }
 
-function Diagnostics({ inExcel }: { inExcel: boolean }) {
-  const [busy, setBusy] = useState(false);
-  const [results, setResults] = useState<ProbeResult[]>([]);
-  const [saved, setSaved] = useState<string>();
-  const run = async () => {
-    setBusy(true);
-    const report = await runDiagnostics();
-    setResults(report.results);
-    setSaved(report.saved);
-    setBusy(false);
-  };
-  return (
-    <div style={{ display: "grid", gap: 8 }}>
-      <Text>Checks what this version of Excel supports. Use a blank workbook.</Text>
-      <Button appearance="primary" disabled={!inExcel || busy} onClick={run}>
-        {busy ? "Running…" : "Run diagnostics"}
-      </Button>
-      {!inExcel && <Text size={200}>Only available inside Excel.</Text>}
-      {results.map((r) => (
-        <div key={r.name} style={{ display: "flex", gap: 8, alignItems: "baseline" }}>
-          <Badge color={r.ok ? "success" : "danger"}>{r.ok ? "Pass" : "Fail"}</Badge>
-          <Text size={200}>{r.name}</Text>
-        </div>
-      ))}
-      {saved && <Text size={200}>Report saved for review.</Text>}
-    </div>
-  );
-}
-
 const TABS: [TabName, string][] = [
   ["model", "Model"],
   ["data", "Data Items"],
@@ -64,6 +35,7 @@ const TABS: [TabName, string][] = [
 
 export function App({ inExcel }: { inExcel: boolean }) {
   const tab = useTab();
+  const saveBlocked = saveBlockedStore.use();
   useRunShortcuts(
     () => void solve(excel()),
     () => void stop(),
@@ -73,6 +45,11 @@ export function App({ inExcel }: { inExcel: boolean }) {
       <div style={{ padding: "8px 12px 0", display: "flex", justifyContent: "flex-start" }}>
         <HelperStatus />
       </div>
+      {saveBlocked && (
+        <Text role="alert" size={200} style={{ padding: "4px 12px", color: "#c50f1f" }}>
+          {saveBlocked}
+        </Text>
+      )}
       <TabList
         size="small"
         selectedValue={tab}
@@ -93,7 +70,7 @@ export function App({ inExcel }: { inExcel: boolean }) {
         <div style={{ height: "100%", display: tab === "model" ? "block" : "none" }}>
           <ModelTab />
         </div>
-        {tab === "settings" && <Diagnostics inExcel={inExcel} />}
+        {tab === "settings" && <SettingsTab inExcel={inExcel} />}
         {tab === "output" && <OutputTab />}
       </div>
       <ConfirmDialog />

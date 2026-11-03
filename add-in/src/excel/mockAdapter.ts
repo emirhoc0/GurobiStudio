@@ -7,6 +7,9 @@ const SHEETS = [
   { id: "mock-sheet-2", name: "Sheet2" },
 ];
 
+const MOCK_STATE_KEY = "gs-mock-state";
+const storage = () => (typeof localStorage === "undefined" ? null : localStorage); // reload = reopen
+
 function cellsOf(address: string): string[][] {
   const { r1, c1, r2, c2 } = rectOf(address);
   const rows: string[][] = [];
@@ -146,6 +149,9 @@ export function createMockAdapter(initial: Record<string, Cell> = {}, options: M
       });
       return (message) => window.opener.postMessage(message, location.origin);
     },
+    loadState: async () => storage()?.getItem(MOCK_STATE_KEY) ?? null,
+    saveState: async (text) => storage()?.setItem(MOCK_STATE_KEY, text),
+    listSheets: async () => SHEETS,
     officeDark: () => null,
   };
 

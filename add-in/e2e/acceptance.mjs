@@ -16,6 +16,7 @@ const helper = spawn(join(ROOT, "helper/.venv/bin/python"), ["-m", "gurobistudio
   env: { ...process.env, GS_PORT: String(PORT), GS_DATA_DIR: data },
   stdio: "inherit",
 });
+process.on("exit", () => helper.kill()); // even when a step throws, or the next run finds the port taken
 
 let failures = 0;
 const check = (name, ok, detail = "") => {
@@ -247,6 +248,87 @@ await dialog().getByRole("button", { name: "Run" }).click();
 await finished();
 check("⌘↵ in the dialog solves in the pane", (await log()).includes("solved from dialog"));
 await popup.close();
+
+// ---- Settings reach the run
+await page.evaluate(() => window.gsSettings.set({ ...window.gsSettings.get(), timeLimit: "5" }));
+await page.getByRole("tab", { name: "Settings" }).click();
+await page.getByLabel("TimeLimit").waitFor();
+check("settings field shows the value", (await page.getByLabel("TimeLimit").inputValue()) === "5");
+await page.getByRole("button", { name: "Add parameter" }).click();
+await page.getByLabel("Parameter 1 name").fill("MIPFocus");
+await page.getByLabel("Parameter 1 value").fill("1");
+await setModel(`${HEADER}m = Model()\nm.optimize()\nprint("focus", m.Params.MIPFocus, m.Params.TimeLimit)\n`);
+await solveAndApprove();
+const paramLog = await log();
+check("parameters are applied before the model", /focus 1 5(\.0)?\b/.test(paramLog), paramLog);
+await page.getByRole("tab", { name: "Settings" }).click();
+await page.getByLabel("Parameter 1 name").fill("NoSuchParam");
+await output();
+await solveButton().click();
+const badChip = await finished();
+check("a bad parameter gets an error card", badChip === "Error" && (await page.getByText("NoSuchParam").first().isVisible()), badChip);
+await page.getByRole("tab", { name: "Settings" }).click();
+await page.getByRole("button", { name: "Remove parameter 1" }).click();
+
+// ---- Check License (acceptance 8)
+await page.getByRole("button", { name: "Check License" }).click();
+await page.getByTestId("license-report").waitFor({ timeout: 90000 });
+const report = await page.getByTestId("license-report").innerText();
+check("Check License reports the Academic license", report.includes("Academic") && !report.includes("size-limited"), report);
+await page.screenshot({ path: join(SHOTS, "settings.png"), fullPage: true });
+
+// ---- Helper settings
+await page.getByLabel("Keep runs").fill("7");
+await page.getByRole("button", { name: "Save helper settings" }).click();
+await page.getByText("Helper settings saved").first().waitFor();
+await page.getByLabel("Python path").fill("/no/such/python");
+await page.getByRole("button", { name: "Save helper settings" }).click();
+await page.getByText("is not an executable").first().waitFor();
+check("helper settings save and refuse a bad path", true);
+await page.getByLabel("Python path").fill("");
+
+// ---- Save and reopen (acceptance 5; a reload is the mock's reopen)
+const tricky = 'a = 1\tb\r\nprint("<x> & ]]> çğüş ✓")\n';
+await setModel(tricky);
+await setItems([item("kept", "indexed", "B1:B2", ["A1:A2"], true)]);
+await page.evaluate(() => window.gsSettings.set({ ...window.gsSettings.get(), mipGap: "0.05", outputFlag: false }));
+await page.waitForTimeout(600);
+await openPane();
+const after = await page.evaluate(() => ({
+  model: window.gsModels.get()["mock-sheet"],
+  items: window.gsItems.get()["mock-sheet"],
+  settings: window.gsSettings.get(),
+}));
+check("model text restored exactly", after.model === tricky, JSON.stringify(after.model));
+check("items restored", after.items?.[0]?.name === "kept" && after.items[0].readOnly === true);
+check("settings restored", after.settings.mipGap === "0.05" && after.settings.outputFlag === false && after.settings.timeLimit === "5");
+await page.waitForTimeout(300);
+check("nothing runs on open", await page.getByRole("tab", { name: "Model", selected: true }).isVisible());
+
+// A trusted model stays trusted across a reopen, since the workbook id is stored.
+await setItems([]);
+await page.evaluate(() => window.gsSettings.set({ ...window.gsSettings.get(), outputFlag: true }));
+await setModel(`${HEADER}print("still trusted")\n`);
+await solveAndApprove();
+await page.waitForTimeout(600);
+await openPane();
+await setModel(`${HEADER}print("still trusted")\n`);
+await output();
+await solveButton().click();
+await page.waitForTimeout(400);
+check("approval survives a reopen", !(await dialog().isVisible()));
+await finished();
+
+// ---- Unreadable state is never overwritten
+const garbage = '{"schema":99,"workbookId":"x"}';
+await page.evaluate((g) => localStorage.setItem("gs-mock-state", g), garbage);
+await openPane();
+await page.getByRole("alert").getByText("could not be read").waitFor();
+await setModel("# edited\n");
+await page.waitForTimeout(600);
+check("a newer schema is left untouched", (await page.evaluate(() => localStorage.getItem("gs-mock-state"))) === garbage);
+await page.evaluate(() => localStorage.removeItem("gs-mock-state"));
+await openPane();
 
 //__NEXT__
 check("no uncaught page errors", pageErrors.length === 0, pageErrors.join(" | "));

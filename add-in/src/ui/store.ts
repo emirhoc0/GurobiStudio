@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from "react";
 import type { DataItem } from "../core/shapes";
+import { DEFAULT_SETTINGS, type Settings } from "../core/state";
 
 export type TabName = "model" | "data" | "output" | "settings";
 
@@ -72,9 +73,13 @@ export const noticeStore = createStore<Notice | null>(null);
 export const notify = (text: string, intent: Notice["intent"] = "info") =>
   noticeStore.set({ text, intent });
 
-// ponytail: in memory until M5 saves these in the workbook. Both are keyed by worksheet id.
+// Saved in the workbook by core/persist.ts. The first two are keyed by worksheet id.
 export const itemsStore = createStore<Record<string, DataItem[]>>({});
 export const modelStore = createStore<Record<string, string>>({});
+
+export const settingsStore = createStore<Settings>(DEFAULT_SETTINGS);
+export const workbookIdStore = createStore("");
+export const saveBlockedStore = createStore<string | null>(null);
 
 export const MODEL_TEMPLATE = `from SolverStudio import *
 from gurobipy import *

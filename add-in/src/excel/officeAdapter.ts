@@ -2,6 +2,10 @@ import { parseRef } from "../core/refs";
 import type { Cell, ExcelAdapter, RangeWrite, RefResult } from "./adapter";
 
 const message = (e: unknown) => (e as Error).message;
+const STATE_NS = "urn:gurobistudio:state";
+// JSON has no raw newlines, so the text survives XML whitespace handling exactly.
+const stateXml = (text: string) =>
+  `<state xmlns="${STATE_NS}">${text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</state>`;
 
 function errorCells(types: string[][]): [number, number][] {
   return types.flatMap((row, r) =>
@@ -200,6 +204,33 @@ export const officeAdapter: ExcelAdapter = {
     });
     return (message) => Office.context.ui.messageParent(message);
   },
+
+  loadState: () =>
+    Excel.run(async (ctx) => {
+      const parts = ctx.workbook.customXmlParts.getByNamespace(STATE_NS).load("items");
+      await ctx.sync();
+      if (!parts.items.length) return null;
+      const xml = parts.items[0].getXml();
+      await ctx.sync();
+      return new DOMParser().parseFromString(xml.value, "application/xml").documentElement
+        .textContent;
+    }),
+
+  saveState: (text) =>
+    Excel.run(async (ctx) => {
+      const parts = ctx.workbook.customXmlParts.getByNamespace(STATE_NS).load("items");
+      await ctx.sync();
+      if (parts.items.length) parts.items[0].setXml(stateXml(text));
+      else ctx.workbook.customXmlParts.add(stateXml(text));
+      await ctx.sync();
+    }),
+
+  listSheets: () =>
+    Excel.run(async (ctx) => {
+      const sheets = ctx.workbook.worksheets.load("items/id,items/name");
+      await ctx.sync();
+      return sheets.items.map((s) => ({ id: s.id, name: s.name }));
+    }),
 
   officeDark: () => Office.context.officeTheme?.isDarkTheme ?? null,
 };

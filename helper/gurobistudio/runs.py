@@ -13,6 +13,8 @@ import threading
 import time
 from pathlib import Path
 
+from .settings import DEFAULTS, child_env
+
 # Gurobi logs these parameter names; drop the lines so nothing about the WLS login can leak.
 CREDENTIAL_LINE = re.compile(r"wls\s*(secret|accessid)|licenseid", re.IGNORECASE)
 # Gurobi's academic banner names the account's email. Copy log makes that easy to paste by accident.
@@ -47,11 +49,14 @@ class Run:
 
 
 class RunManager:
-    def __init__(self, runs_dir: Path, keep: int = 10):
+    def __init__(self, runs_dir: Path, settings: dict | None = None):
         self.runs_dir = runs_dir
-        self.keep = keep
+        self.settings = settings or dict(DEFAULTS)
         self.runs: dict[str, Run] = {}
         self.lock = threading.Lock()
+
+    def python(self) -> str:
+        return self.settings["python_path"] or sys.executable
 
     def latest_dir(self) -> Path | None:
         """The newest run folder, on disk, so it survives a helper restart."""
@@ -70,8 +75,9 @@ class RunManager:
             run_dir.mkdir(parents=True)
             (run_dir / "input.json").write_text(json.dumps(spec))
             process = subprocess.Popen(
-                [sys.executable, "-u", "-m", "gurobistudio.runner", str(run_dir)],
+                [self.python(), "-u", "-m", "gurobistudio.runner", str(run_dir)],
                 cwd=HELPER_ROOT,
+                env=child_env(self.settings),
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 stdin=subprocess.DEVNULL,
@@ -142,7 +148,7 @@ class RunManager:
         )
 
     def _prune(self):
-        for old in self._run_dirs()[: -self.keep]:
+        for old in self._run_dirs()[: -self.settings["keep_runs"]]:
             shutil.rmtree(old, ignore_errors=True)
             self.runs.pop(old.name, None)
 

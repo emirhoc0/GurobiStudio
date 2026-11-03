@@ -88,10 +88,6 @@ Each entry says what was chosen and why. "Proven" means tested in real Excel for
 - **The pane stays on its sheet while a form has unsaved edits**, so a range can be picked from another
   sheet, and after saving until the next sheet click, so the saved item doesn't seem to vanish. Solve
   uses the active sheet, as ever.
-- **Model tab is a plain text box until M4**, so items can run a real model now.
-- **Items and models live in memory until M5.** Reloading the pane loses them.
-- **`approved: true` stays until M4's trust prompt**, under a throwaway workbook id. Models can only be
-  typed by hand until M5 loads them from a workbook, so no workbook can reach this path.
 
 ## Proven by M3 diagnostics (Excel for Mac, 2026-11-03)
 
@@ -105,3 +101,24 @@ Each entry says what was chosen and why. "Proven" means tested in real Excel for
   `names.add` rejected it with `InvalidArgument`, so make those in Name Manager. This Excel shows the
   formula with `;` separators, which may be why, but that wasn't tested.
 - **Not exercised in Excel:** the values-only path for names with no address. No test name reached it.
+
+## Editor and prompts (M4)
+
+- **Data item names are chips above the editor**, not a side list, because the pane is too narrow.
+- **The trust gate is advisory.** Anything holding the token can send `approved`. That program already
+  runs as you, so this adds no new risk. The gate stops a workbook from running new code unseen.
+- **Formula prompt is one dialog per solve.** "Keep formulas" still writes every other result.
+- **The pane keeps the last 5,000 log lines.** The full log stays in the run folder.
+
+## Persistence and settings (M5)
+
+- **State is one custom XML part** (`urn:gurobistudio:state`) holding JSON with `schema: 1`.
+- **Saves are debounced 300 ms and never overlap.** A failure shows one toast and retries every 2 s.
+- **Unreadable or newer state turns saving off** and shows an error, so it's never overwritten.
+- **Nothing saves until the load finishes**, and `solve()` waits for it. Nothing runs on open.
+- **Sheet ids:** if no stored id matches a current sheet, entries are matched by name. If any id
+  matches, none are remapped, so a new sheet can't inherit a deleted sheet's model.
+- **The port is read-only in Settings**, because changing it means rewriting the manifest.
+  `install.sh` writes a `port` file that the helper reads, so the two can't disagree.
+- **Check License returns derived facts only**, never raw log lines, and refuses during a solve
+  because a solve may hold the only WLS session.

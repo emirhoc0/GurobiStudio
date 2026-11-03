@@ -13,7 +13,8 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import __version__
+from . import __version__, settings
+from .license import check_license
 from .runs import Run, RunManager, TrustStore
 from .security import SecurityMiddleware, load_or_create_secret
 
@@ -55,7 +56,8 @@ def create_app(
             **gurobi_info(),
         }
 
-    runs = RunManager(data_dir / "runs")
+    settings_path = data_dir / "settings.json"
+    runs = RunManager(data_dir / "runs", settings.load(settings_path))
     trust = TrustStore(data_dir / "trusted_models.json")
 
     def get_run(run_id: str) -> Run:
@@ -119,6 +121,26 @@ def create_app(
         if latest is None:
             raise HTTPException(404, "No runs yet")
         return reveal(latest)
+
+    @app.get("/api/settings")
+    def get_settings():
+        return {**runs.settings, "port": port, "default_python": sys.executable}
+
+    @app.put("/api/settings")
+    async def put_settings(request: Request):
+        try:
+            cleaned = settings.clean(await request.json())
+        except ValueError as e:
+            return JSONResponse({"error": str(e)}, 400)
+        settings_path.write_text(json.dumps(cleaned))
+        runs.settings = cleaned
+        return get_settings()
+
+    @app.post("/api/license/check")
+    def license_check():
+        if runs.busy():
+            return JSONResponse({"busy": True}, 409)  # a solve may hold the only WLS session
+        return check_license(runs.python(), settings.child_env(runs.settings))
 
     @app.post("/api/diag")
     async def diag(request: Request):

@@ -7,6 +7,8 @@ PORT="${GS_PORT:-8765}"
 PLACEMENT="${GS_PLACEMENT:-data}"
 WEF="$HOME/Library/Containers/com.microsoft.Excel/Data/Documents/wef"
 
+DATA="${GS_DATA_DIR:-$HOME/Library/Application Support/GurobiStudio}"
+
 echo "==> Python environment"
 [ -x "$ROOT/helper/.venv/bin/python" ] || python3.13 -m venv "$ROOT/helper/.venv"
 "$ROOT/helper/.venv/bin/pip" install -q --disable-pip-version-check -r "$ROOT/helper/requirements.txt"
@@ -28,5 +30,7 @@ mkdir -p "$WEF"
 (umask 077; "$ROOT/helper/.venv/bin/python" "$ROOT/scripts/make_manifest.py" "$PORT" "$PLACEMENT" \
   > "$WEF/gurobistudio.manifest.xml")
 chmod 600 "$WEF/gurobistudio.manifest.xml"
+mkdir -p "$DATA"
+echo "$PORT" > "$DATA/port" # the helper reads this, so it always matches the manifest
 
 echo "Done. Start the helper with scripts/run-helper.sh, then restart Excel."

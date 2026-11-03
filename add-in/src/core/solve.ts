@@ -7,11 +7,15 @@ import {
   modelStore,
   runStore,
   setTab,
+  settingsStore,
+  workbookIdStore,
   type RunError,
 } from "../ui/store";
 import { apiFetch, getHealth } from "./api";
+import { whenLoaded } from "./persist";
 import { overlapWarnings, readItems, type BuiltItem, type Wire } from "./shapes";
 import { createSseParser } from "./sse";
+import { buildParams } from "./state";
 import { keepMasked, maskedAddresses, writeFor } from "./writeback";
 
 // The full log is in the run folder; this keeps a chatty model from slowing the pane.
@@ -29,8 +33,6 @@ type RunEvent =
       warnings: string[];
     }
   | { type: "error"; elapsed: number; error: RunError };
-
-const WORKBOOK_ID = "m4-unsaved"; // ponytail: M5 replaces this with the id stored in the workbook
 
 function fail(message: string, type = "Error") {
   runStore.set({ ...runStore.get(), phase: "failed", error: { type, message, line: null } });
@@ -80,6 +82,7 @@ export async function solve(excel: ExcelAdapter) {
   if (runStore.get().phase === "running") return;
   runStore.set({ phase: "running", log: [] });
   setTab("output");
+  await whenLoaded();
 
   try {
     await getHealth();
@@ -114,8 +117,8 @@ export async function solve(excel: ExcelAdapter) {
           value: b.value,
           readOnly: b.item.readOnly,
         })),
-        params: {},
-        workbook_id: WORKBOOK_ID,
+        params: buildParams(settingsStore.get()),
+        workbook_id: workbookIdStore.get(),
         approved,
       }),
     });
