@@ -1,6 +1,7 @@
 # Manual checks in Excel for Mac
 
-Automated tests can't click inside Excel. These stay **unverified** until someone runs them.
+Automated tests can't click inside Excel. A box stays unticked until someone has run the check in real
+Excel. Ticked boxes dated 2026-11-03 were driven by AppleScript and `cliclick` on Excel 16.112.4.
 
 ## Reload after a manifest change
 
@@ -18,9 +19,10 @@ then right-click in the pane and choose Inspect Element.
 
 The manifest URL carries the page key, so re-run install after deleting the helper data folder.
 
-- [ ] The Data tab shows a SolverStudio group with Edit Data, Show Model, Solve Model, Stop, More.
-- [ ] Edit Data opens the pane on Data Items. Show Model opens Model.
-- [ ] The pane shows a green Gurobi 13.0.3 badge.
+- [x] The Data tab shows Edit Data, Show Model, Solve Model, Stop, More (2026-11-03).
+- [ ] Edit Data opens the pane on Data Items.
+- [x] Show Model opens Model, on the second click after a reopen (see DECISIONS, 2026-11-03).
+- [x] The pane shows a green Gurobi 13.0.3 badge (2026-11-03).
 - [ ] Settings > Run diagnostics finishes, and "temporary sheet and names removed" passes.
 
 ## M3 data items and solve
@@ -81,6 +83,45 @@ status = "Solved"
 
 Excel Table (acceptance test 7):
 
-- [ ] Make A8:B9 a Table with headers on row 7 (name it `Demand`, columns `Customer`, `Qty`). Set the
-      `demand` item to index `Demand[Customer]`, cells `Demand[Qty]`. Add a row and check the preview
-      shows the new entry. Then bind a named range to a table column, add a row, and check again.
+- [x] A List item on `Demand[Qty]` previews `[1, 2]`. Typing a row under the Table and clicking Refresh
+      gives `[1, 2, 3]` (2026-11-03).
+- [ ] Same with an Indexed item using `Demand[Customer]` as its index.
+- [ ] Bind a named range to a table column, add a row, and check again.
+
+## M4 to M6
+
+Examples:
+
+- [x] More > Examples opens the picker. Insert Transportation adds a formatted sheet with its model and
+      items (2026-11-03).
+- [x] Solve shows the trust prompt, then Optimal. Cells read back by AppleScript equal the brute-force
+      answer: 20, 0, 10 / 0, 30, 15, total 365 (2026-11-03).
+- [ ] Diet, Knapsack and Assignment in Excel. All four pass in `npm run e2e` on the mock sheet.
+
+Prompts and running:
+
+- [x] Changed code prompts again. Unchanged code doesn't (2026-11-03).
+- [x] A formula that would change shows one prompt naming the cell. Keep leaves it, Overwrite replaces it.
+      A formula equal to the result shows nothing (2026-11-03).
+- [x] Ribbon Stop during a long MIP: chip says Stopped, Gurobi logs the interrupt, runner exits at once,
+      no cells written (2026-11-03).
+- [x] Pop out opens the model. Text typed there reaches the pane (2026-11-03).
+- [ ] Pop out with a very large model, for the `messageParent` size limit.
+- [ ] ⌘↵ and ⌘. inside Excel, and error-card jump to line. All pass in `npm run e2e`.
+
+Saving:
+
+- [x] Save, close, reopen: model and items restored, nothing runs, approval kept (2026-11-03).
+- [x] Solve Model as the first click after a reopen opens the pane and runs (2026-11-03).
+- [ ] Tabs, CRLF and non-ASCII through a real reopen. Passes in `npm run e2e` and in M1's session test.
+- [ ] Settings tab in Excel: parameters, Check License, helper paths. All pass in `npm run e2e`.
+
+Light theme and install:
+
+- [x] The pane follows Excel's dark theme (2026-11-03).
+- [ ] Excel in light mode, and switching while the pane is open.
+- [x] `scripts/install.sh` twice: exit 0, with the same manifest, page key, token and certificate, and
+      no certificate prompt (2026-11-03).
+- [ ] `GS_LAUNCH_AGENT=1 scripts/install.sh`: the helper runs after login, and `scripts/uninstall.sh`
+      removes it. Never run. Stop any running helper first, because they share a port. Then check
+      `helper.log` in the data folder, since macOS may block a launchd job from reading `~/Desktop`.

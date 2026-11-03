@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Writes the login item. Usage: make_plist.py OUT LABEL SCRIPT LOG"""
 
 import plistlib

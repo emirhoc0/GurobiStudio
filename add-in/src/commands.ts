@@ -8,6 +8,7 @@ type Event = Office.AddinCommands.Event;
 async function showPane(tab: TabName, event: Event) {
   try {
     setTab(tab);
+    await Office.onReady(); // this click may have started the runtime
     await Office.addin.showAsTaskpane();
   } finally {
     event.completed();

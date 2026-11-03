@@ -122,3 +122,31 @@ Each entry says what was chosen and why. "Proven" means tested in real Excel for
   `install.sh` writes a `port` file that the helper reads, so the two can't disagree.
 - **Check License returns derived facts only**, never raw log lines, and refuses during a solve
   because a solve may hold the only WLS session.
+
+## Examples and install (M6)
+
+- **Examples are JSON bundled into the add-in**, so they need no extra API. All data is invented for
+  this project. Their `expected` answers come from brute force, not Gurobi, and each optimum was
+  checked to be unique, so the acceptance test can't fail on an alternate optimum.
+- **Inserting an example sets its model before activating the sheet**, so the editor never shows the
+  template first.
+- **`npm ci` is retried once in install.** It failed once with `ENOTEMPTY` deleting `node_modules`, and
+  the retry passed. What touched the folder wasn't identified.
+- **The login item is opt-in** (`GS_LAUNCH_AGENT=1`). A repo under `~/Desktop` may hit macOS privacy
+  limits for launchd jobs. Not yet tested, see `docs/TESTING.md`.
+- **Known issue: the first Show Model click after reopening a workbook does nothing.** A second click
+  opens the pane. Seen every time in real Excel, 5 of 5 tries. Solve Model as the first click works,
+  which is why nothing is at risk. Ruled out: the action being associated too late (it's now at the top
+  level), `showAsTaskpane` running before `onReady`, and whether the pane was open last session. Edit
+  Data, Settings and Examples share this code path, but only Show Model was tried.
+- **Gurobi reports "no expiry" as `0`, `99991231` or `99999999`.** Check License shows no date for these.
+
+## Proven in real Excel (M4 to M6, Excel 16.112.4, 2026-11-03)
+
+- **Save, close and reopen:** the model and items come back from the file, nothing runs on open, and a
+  model approved before the reopen runs without a new prompt, since the workbook id is stored.
+- **The restored model lands on the right sheet.** Whether through a surviving worksheet id or the remap
+  by name wasn't checked.
+- **The page key is not stored in a saved workbook.** Searched the unzipped file.
+- **The pop-out's short edits reach the pane.** The size limit of `messageParent` was not tested in real
+  Excel. The 300 KB test only covers the browser mock.

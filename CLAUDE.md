@@ -8,17 +8,18 @@ Excel for Mac add-in (Office.js) plus a local Python helper that runs gurobipy m
 
 ## Commands
 
-- Install or update everything: `scripts/install.sh` (env: `GS_PORT`, `GS_PLACEMENT=data|custom|home`)
+- Install or update everything: `scripts/install.sh` (env: `GS_PORT`, `GS_PLACEMENT=data|custom|home`, `GS_LAUNCH_AGENT=1`)
 - Run the helper: `scripts/run-helper.sh`. It doesn't auto-reload, so restart it after changing server code.
 - Helper tests: `cd helper && .venv/bin/pytest`, one file: `.venv/bin/pytest tests/test_wire.py`, lint: `.venv/bin/ruff check .`
 - Add-in: `cd add-in && npm run build`, `npm test`, one file: `npx vitest run src/core/sse.test.ts`, `npm run lint`
+- Browser acceptance, real helper and Gurobi on a spare port: `cd add-in && npm run build && npm run e2e`
 - Open the pane in a browser: `https://localhost:8765/?k=<page key>`, with the key from the `page_key` file in the data folder. The helper serves `add-in/dist`, so build first.
 - Regenerate ribbon icons: `python3 scripts/make_icons.py add-in/public/icons`
 - After manifest changes: re-run install, quit Excel, clear the cache (see docs/TESTING.md)
 
 ## Architecture
 
-The helper is a FastAPI app on `127.0.0.1` over HTTPS. It serves both the built add-in and the API. Its data folder is `~/Library/Application Support/GurobiStudio/` (override with `GS_DATA_DIR`) and holds `token`, `page_key`, `trusted_models.json` and `runs/`.
+The helper is a FastAPI app on `127.0.0.1` over HTTPS. It serves both the built add-in and the API. Its data folder is `~/Library/Application Support/GurobiStudio/` (override with `GS_DATA_DIR`) and holds `token`, `page_key`, `port`, `settings.json`, `trusted_models.json` and `runs/`.
 
 A solve crosses both sides:
 
@@ -36,12 +37,12 @@ Security layers:
 - The token is injected into the served page only when the request has the correct `?k=` page key.
 - Model approvals live in the data folder, never the workbook, so a workbook can't approve itself.
 
-In `add-in/src/`, `excel/` holds the `ExcelAdapter` interface with its Office and mock implementations. `main.tsx` picks one at startup; outside Excel it uses the mock and exposes `window.mockCells` for browser tests. `core/` holds non-UI logic and `ui/` holds React with a small store. `commands.ts` handles ribbon actions in the shared runtime.
+In `add-in/src/`, `excel/` holds the `ExcelAdapter` interface with its Office and mock implementations. `main.tsx` picks one at startup; outside Excel it uses the mock and exposes `window.mockCells` for browser tests. `core/` holds non-UI logic and `ui/` holds React with a small store. `core/persist.ts` saves models, items and settings to a custom XML part in the workbook. `examples/*.json` are bundled into the add-in. `commands.ts` handles ribbon actions in the shared runtime.
 
 ## Current state
 
-- Work is split into milestones (M1, M2, ...). M3 (data items) is built. The Model tab is a plain text box, `solve.ts` still sends `approved: true`, and items and models live in memory; M4 and M5 replace these.
-- `docs/TESTING.md` lists manual Excel checks, which stay unverified until someone runs them in real Excel.
+- Milestones M0 to M6 are built on branch `m4-m6`.
+- `docs/TESTING.md` lists manual Excel checks and which have been run in real Excel.
 - `docs/DECISIONS.md` refers to "the brief", which isn't in this repo.
 
 ## Rules

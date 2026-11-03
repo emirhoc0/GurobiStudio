@@ -11,6 +11,9 @@ import { itemsStore, modelStore, settingsStore } from "./ui/store";
 
 const view = new URLSearchParams(location.search).get("view");
 
+// At the top level, as Microsoft's samples do, so a click that starts a fresh runtime finds its action.
+if (typeof Office !== "undefined" && !view) registerCommands();
+
 async function start(inExcel: boolean) {
   if (view === "editor") {
     setExcel(inExcel ? officeAdapter : createMockAdapter().adapter);
@@ -47,7 +50,6 @@ if (typeof Office === "undefined") {
       runDialogSide();
       return;
     }
-    if (info.host && view !== "editor") registerCommands();
     void start(Boolean(info.host));
   });
 }
