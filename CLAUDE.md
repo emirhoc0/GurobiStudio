@@ -7,6 +7,7 @@ Excel for Mac add-in (Office.js) plus a local Python helper that runs gurobipy m
 - Install or update everything: `scripts/install.sh` (env: `GS_PORT`, `GS_PLACEMENT=data|custom|home`)
 - Run the helper: `scripts/run-helper.sh`
 - Helper tests: `cd helper && .venv/bin/pytest`, lint: `.venv/bin/ruff check .`
+- Open the pane in a browser: needs `?k=` with the contents of the `page_key` file in the data folder
 - Add-in: `cd add-in && npm run build`, `npm test`, `npm run lint`
 - Regenerate ribbon icons: `python3 scripts/make_icons.py add-in/public/icons`
 - After manifest changes: re-run install, quit Excel, clear the cache (see docs/TESTING.md)

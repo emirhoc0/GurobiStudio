@@ -16,6 +16,8 @@ then right-click in the pane and choose Inspect Element.
 
 ## M1 pipeline
 
+The manifest URL carries the page key, so re-run install after deleting the helper data folder.
+
 - [ ] The Data tab shows a SolverStudio group with Edit Data, Show Model, Solve Model, Stop, More.
 - [ ] Edit Data opens the pane on Data Items. Show Model opens Model.
 - [ ] The pane shows a green Gurobi 13.0.3 badge.

@@ -8,17 +8,17 @@ from pathlib import Path
 from starlette.responses import JSONResponse
 
 
-def load_or_create_token(data_dir: Path) -> str:
+def load_or_create_secret(data_dir: Path, name: str) -> str:
     data_dir.mkdir(parents=True, exist_ok=True)
-    path = data_dir / "token"
+    path = data_dir / name
     try:
         fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
     except FileExistsError:
         return path.read_text().strip()
-    token = secrets.token_urlsafe(32)
+    secret = secrets.token_urlsafe(32)
     with os.fdopen(fd, "w") as f:
-        f.write(token)
-    return token
+        f.write(secret)
+    return secret
 
 
 class SecurityMiddleware:

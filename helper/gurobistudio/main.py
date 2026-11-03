@@ -2,17 +2,18 @@ import asyncio
 import functools
 import json
 import os
+import secrets
 import sys
 import time
 from importlib import metadata
 from pathlib import Path
 
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import __version__
-from .security import SecurityMiddleware, load_or_create_token
+from .security import SecurityMiddleware, load_or_create_secret
 
 REPO = Path(__file__).resolve().parents[2]
 DEFAULT_PORT = 8765
@@ -39,7 +40,8 @@ def create_app(
     dist_dir: Path = REPO / "add-in" / "dist",
 ) -> FastAPI:
     data_dir = data_dir or default_data_dir()
-    token = load_or_create_token(data_dir)
+    token = load_or_create_secret(data_dir, "token")
+    page_key = load_or_create_secret(data_dir, "page_key")
     app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
     app.add_middleware(SecurityMiddleware, port=port, token=token)
 
@@ -75,7 +77,11 @@ def create_app(
 
         return StreamingResponse(events(), media_type="text/event-stream")
 
-    def page() -> HTMLResponse:
+    def page(k: str = ""):
+        # The API token is only handed to holders of the key in the private sideloaded manifest,
+        # so other local programs and accounts can't read it from this page.
+        if not secrets.compare_digest(k.encode(), page_key.encode()):
+            return JSONResponse({"error": "missing page key"}, 403)
         html = (dist_dir / "taskpane.html").read_text().replace("__GS_TOKEN__", token)
         return HTMLResponse(html, headers={"Cache-Control": "no-store"})
 

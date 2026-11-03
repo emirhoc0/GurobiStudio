@@ -34,6 +34,15 @@ Each entry says what was chosen and why. "Proven" means tested in real Excel for
 - **Port:** 8765 by default. It is written into the manifest, so changing it means re-running install.
 - **TypeScript 6.0.3**, not 7, because typescript-eslint requires a version below 6.1.
 
+## Security
+
+- **The API token needs a page key.** The brief injects the token into the served HTML, but any local
+  program could then fetch the page and read it. The page now requires `?k=<page key>`. The key lives
+  only in a 0600 file in the helper data folder and in the private sideloaded manifest. Without it
+  the page returns 403 and never contains the token.
+- **Not covered:** a program running as you outside the sandbox can read those files anyway. It can
+  already run anything as you, so this adds no new risk. No peer-UID check on loopback.
+
 ## To be settled by M1 diagnostics
 
 - Ribbon placement (`TabData`, then custom tab, then Home).

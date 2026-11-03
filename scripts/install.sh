@@ -24,6 +24,9 @@ chmod 600 "$HOME/.office-addin-dev-certs/localhost.key"
 
 echo "==> Sideloading the manifest"
 mkdir -p "$WEF"
-python3 "$ROOT/scripts/make_manifest.py" "$PORT" "$PLACEMENT" > "$WEF/gurobistudio.manifest.xml"
+# Holds the page key, so only this account may read it.
+(umask 077; "$ROOT/helper/.venv/bin/python" "$ROOT/scripts/make_manifest.py" "$PORT" "$PLACEMENT" \
+  > "$WEF/gurobistudio.manifest.xml")
+chmod 600 "$WEF/gurobistudio.manifest.xml"
 
 echo "Done. Start the helper with scripts/run-helper.sh, then restart Excel."

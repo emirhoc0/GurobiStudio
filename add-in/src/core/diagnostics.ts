@@ -60,7 +60,8 @@ function requirementSets() {
 
 function dialogRoundTrip(): Promise<{ ok: boolean; detail: unknown }> {
   return new Promise((resolve) => {
-    const url = `${location.origin}/taskpane.html?view=diag-dialog`;
+    const key = new URLSearchParams(location.search).get("k") ?? "";
+    const url = `${location.origin}/taskpane.html?k=${encodeURIComponent(key)}&view=diag-dialog`;
     Office.context.ui.displayDialogAsync(url, { height: 30, width: 30 }, (res) => {
       if (res.status !== Office.AsyncResultStatus.Succeeded) {
         resolve({ ok: false, detail: res.error });
