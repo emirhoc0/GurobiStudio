@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from "react";
+import type { DataItem } from "../core/shapes";
 
 export type TabName = "model" | "data" | "output" | "settings";
 
@@ -47,3 +48,12 @@ export const useTab = tabStore.use;
 
 export const runStore = createStore<RunState>({ phase: "idle", log: [] });
 export const useRun = runStore.use;
+
+// ponytail: in memory until M5 saves these in the workbook. Both are keyed by worksheet id.
+export const itemsStore = createStore<Record<string, DataItem[]>>({});
+export const modelStore = createStore<Record<string, string>>({});
+
+export const MODEL_TEMPLATE = `from SolverStudio import *
+from gurobipy import *
+
+`;

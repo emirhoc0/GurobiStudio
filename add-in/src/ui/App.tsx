@@ -11,6 +11,8 @@ import {
 } from "@fluentui/react-components";
 import { getHealth, type Health } from "../core/api";
 import { runDiagnostics, type ProbeResult } from "../core/diagnostics";
+import { DataItemsTab } from "./DataItemsTab";
+import { ModelTab } from "./ModelTab";
 import { OutputTab } from "./OutputTab";
 import { setTab, useTab, type TabName } from "./store";
 
@@ -103,13 +105,13 @@ export function App({ inExcel }: { inExcel: boolean }) {
         ))}
       </TabList>
       <div style={{ padding: 12, overflow: "auto", flex: 1 }}>
-        {tab === "settings" ? (
-          <Diagnostics inExcel={inExcel} />
-        ) : tab === "output" ? (
-          <OutputTab />
-        ) : (
-          <Text>{TABS.find(([v]) => v === tab)![1]} is coming in a later milestone.</Text>
-        )}
+        {/* Stays mounted, so a half-filled form survives a look at another tab. */}
+        <div hidden={tab !== "data"}>
+          <DataItemsTab />
+        </div>
+        {tab === "settings" && <Diagnostics inExcel={inExcel} />}
+        {tab === "output" && <OutputTab />}
+        {tab === "model" && <ModelTab />}
       </div>
     </FluentProvider>
   );

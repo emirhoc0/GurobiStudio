@@ -56,7 +56,7 @@ export function OutputTab() {
       ))}
       {run.error && (
         <div role="alert">
-          <Text weight="semibold">
+          <Text weight="semibold" style={{ whiteSpace: "pre-wrap" }}>
             {run.error.type}: {run.error.message}
             {run.error.line != null && ` (line ${run.error.line})`}
           </Text>

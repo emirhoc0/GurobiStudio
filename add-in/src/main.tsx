@@ -12,7 +12,7 @@ function start(inExcel: boolean) {
   } else {
     const mock = createMockAdapter();
     setExcel(mock.adapter);
-    Object.assign(window, { mockCells: mock.cells }); // lets browser tests inspect results
+    Object.assign(window, { mockCells: mock.cells, mockExcel: mock }); // for browser tests
   }
   createRoot(document.getElementById("root")!).render(<App inExcel={inExcel} />);
 }

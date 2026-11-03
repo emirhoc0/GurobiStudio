@@ -62,7 +62,34 @@ Each entry says what was chosen and why. "Proven" means tested in real Excel for
   renders small and the other three large. Excel for Mac showed no group titles in the test
   screenshot, so the name "SolverStudio" may not be visible on the ribbon.
 
+## Data items (M3)
+
+- **Trailing blanks and the index.** The index decides how many entries there are. A cell range longer
+  than the index is fine if the extra cells are blank; values past the end are an error. Every key
+  keeps its cell even when blank, so an empty output column still writes back.
+- **Multi-column lists** drop trailing blank rows only. A blank column stays as `None` in each tuple,
+  so the tuple length doesn't change once results arrive.
+- **Blanks inside a list** are `None`, so positions hold. Blanks in dicts are omitted, as the brief says.
+- **A blank or repeated index key is an error**, since either would silently lose data.
+- **Whole rows and columns (`A:A`) are refused.** Reading a million cells freezes Excel. Use a bounded
+  range, a Table column or a named range.
+- **Overlapping ranges warn, not block.** Only writable items count. Checked on resolved addresses, so
+  named ranges and tables are covered.
+- **`Application` is refused as an item name**, because the runner puts the shim object there.
+- **Named range creation** names the Cell Range only, at workbook scope, using the item's name. A name
+  Excel refuses (`x1`, `c`, `r`) shows Excel's message.
+- **Formula names.** Where Excel gives a name's values but no address, the item still reads, and a
+  change is reported as a warning instead of written. Whether `OFFSET` names land here is checked by
+  diagnostics.
+- **The pane stays on its sheet while a form has unsaved edits**, so a range can be picked from another
+  sheet, and after saving until the next sheet click, so the saved item doesn't seem to vanish. Solve
+  uses the active sheet, as ever.
+- **Model tab is a plain text box until M4**, so items can run a real model now.
+- **Items and models live in memory until M5.** Reloading the pane loses them.
+- **`approved: true` stays until M4's trust prompt**, under a throwaway workbook id. Models can only be
+  typed by hand until M5 loads them from a workbook, so no workbook can reach this path.
+
 ## Still to settle
 
 - `OFFSET`-style names. `names.add` rejects the formula even with a quoted sheet name, so the API
-  can't create one. Reading one made in Excel's Name Manager is tested at M3.
+  can't create one. Reading one made in Excel's Name Manager is awaiting the diagnostics result.

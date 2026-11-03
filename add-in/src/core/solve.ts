@@ -1,19 +1,10 @@
-// ponytail: M2 proof with one hard-coded model and cells; M3 and M4 replace them with real items.
-import type { ExcelAdapter } from "../excel/adapter";
-import { runStore, type RunError } from "../ui/store";
+// Reads the active sheet's data items, runs its model, writes changed items back.
+import type { ExcelAdapter, RangeWrite } from "../excel/adapter";
+import { itemsStore, MODEL_TEMPLATE, modelStore, runStore, type RunError } from "../ui/store";
 import { apiFetch } from "./api";
+import { overlapWarnings, readItems, type BuiltItem, type Wire } from "./shapes";
 import { createSseParser } from "./sse";
-
-const MODEL = `from SolverStudio import *
-from gurobipy import *
-
-m = Model("proof")
-x = m.addVar(ub=capacity, name="x")
-m.setObjective(2 * x, GRB.MAXIMIZE)
-m.optimize()
-result = x.x
-print("x =", result)
-`;
+import { writeFor } from "./writeback";
 
 type RunEvent =
   | { type: "log"; line: string }
@@ -23,7 +14,7 @@ type RunEvent =
       elapsed: number;
       status: string;
       objective: number | null;
-      changed: { name: string; value: unknown }[];
+      changed: { name: string; value: Wire }[];
       warnings: string[];
     }
   | { type: "error"; elapsed: number; error: RunError };
@@ -32,33 +23,55 @@ function fail(message: string, type = "Error") {
   runStore.set({ ...runStore.get(), phase: "failed", error: { type, message, line: null } });
 }
 
+/** Null after reporting why the items can't be read. */
+async function readForRun(excel: ExcelAdapter, sheetId: string): Promise<BuiltItem[] | null> {
+  const results = await readItems(excel, itemsStore.get()[sheetId] ?? [], sheetId);
+  const problems = results.flatMap((r) => ("error" in r ? [r.error] : []));
+  if (problems.length) {
+    fail(problems.join("\n"), "Data item problem");
+    return null;
+  }
+  return results as BuiltItem[];
+}
+
+function blankNotes(built: BuiltItem[]): string[] {
+  return built
+    .filter((b) => b.blanks > 0 && b.slots)
+    .map((b) => `${b.item.name}: ${b.blanks} blank cell(s) omitted`);
+}
+
 export async function solve(excel: ExcelAdapter) {
   if (runStore.get().phase === "running") return;
   runStore.set({ phase: "running", log: [] });
+
+  let built: BuiltItem[];
+  let sheetId: string;
   try {
-    const sheet = await excel.activeSheet();
-    const capacityCell = { sheetId: sheet.id, address: "A1" };
-    const resultCell = { sheetId: sheet.id, address: "B1" };
+    sheetId = (await excel.activeSheet()).id;
+    const read = await readForRun(excel, sheetId);
+    if (!read) return;
+    built = read;
+  } catch (e) {
+    fail(`Could not read the sheet. (${(e as Error).message})`);
+    return;
+  }
+  const readWarnings = overlapWarnings(built);
+  runStore.set({ ...runStore.get(), log: blankNotes(built), warnings: readWarnings });
 
-    const [[[stored]]] = await excel.readRanges([capacityCell]);
-    if (stored === "") await excel.writeRanges([{ ref: capacityCell, values: [[10]] }]);
-    const capacity = stored === "" ? 10 : stored;
-    if (typeof capacity !== "number") {
-      fail("Cell A1 must hold a number for this test model.");
-      return;
-    }
-
+  try {
     const start = await apiFetch("/api/run", {
       method: "POST",
       body: JSON.stringify({
-        model: MODEL,
-        items: [
-          { name: "capacity", type: "single", value: capacity },
-          { name: "result", type: "single", value: null },
-        ],
+        model: modelStore.get()[sheetId] ?? MODEL_TEMPLATE,
+        items: built.map((b) => ({
+          name: b.item.name,
+          type: b.item.type,
+          value: b.value,
+          readOnly: b.item.readOnly,
+        })),
         params: {},
-        workbook_id: "m2-proof",
-        approved: true, // the trust prompt arrives in M4
+        workbook_id: "m3-unsaved",
+        approved: true, // the model is typed here until M5; the trust prompt arrives in M4
       }),
     });
     if (start.status === 409) {
@@ -94,9 +107,20 @@ export async function solve(excel: ExcelAdapter) {
     } else if (final?.type === "error") {
       runStore.set({ ...current, phase: "failed", elapsed: final.elapsed, error: final.error });
     } else if (final?.type === "result") {
-      const written = final.changed.find((c) => c.name === "result");
-      if (written) {
-        await excel.writeRanges([{ ref: resultCell, values: [[written.value as number]] }]);
+      const writes: RangeWrite[] = [];
+      const warnings = [...readWarnings, ...final.warnings];
+      for (const change of final.changed) {
+        const item = built.find((b) => b.item.name === change.name);
+        if (!item) continue;
+        const result = writeFor(item, change.value);
+        if (result.write) writes.push(result.write);
+        warnings.push(...result.warnings);
+      }
+      try {
+        if (writes.length) await excel.writeRanges(writes);
+      } catch (e) {
+        fail(`The solve finished, but its results could not be written. (${(e as Error).message})`);
+        return;
       }
       runStore.set({
         ...current,
@@ -105,7 +129,7 @@ export async function solve(excel: ExcelAdapter) {
         objective: final.objective,
         elapsed: final.elapsed,
         changed: final.changed.map((c) => c.name),
-        warnings: final.warnings,
+        warnings,
       });
     } else {
       throw new Error("The helper closed the stream without a result.");

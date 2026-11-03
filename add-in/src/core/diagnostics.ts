@@ -1,5 +1,6 @@
 // Proves what Excel for Mac actually does. Runs on a temporary sheet, removes everything after,
 // and posts the report to the helper so results can be read without copying from the pane.
+import { officeAdapter } from "../excel/officeAdapter";
 import { apiFetch } from "./api";
 
 export interface ProbeResult {
@@ -11,7 +12,9 @@ export interface ProbeResult {
 
 const SHEET = "_gsdiag";
 const SHEET2 = "_gsdiag2";
-const NAMES = ["gsdiag_plain", "gsdiag_tbl", "gsdiag_off"];
+const NAMES = ["gsdiag_plain", "gsdiag_tbl", "gsdiag_off", "gsdiag_made"];
+// Excel's API can't create an OFFSET name, so this one is made by hand and never deleted here.
+const USER_OFFSET_NAME = "gs_offset";
 const NS = "urn:gurobistudio:diag";
 
 const escapeXml = (s: string) =>
@@ -245,6 +248,95 @@ export async function runDiagnostics(): Promise<{ results: ProbeResult[]; saved?
           value: named.value,
           address: r.isNullObject ? null : r.address,
         },
+      };
+    }),
+  );
+
+  const diagSheetId = () =>
+    Excel.run(async (ctx) => {
+      const s = ctx.workbook.worksheets.getItem(SHEET).load("id");
+      await ctx.sync();
+      return s.id;
+    });
+
+  await probe(results, "adapter reads every kind of reference in one batch", async () => {
+    const refs = [
+      "F1:F3",
+      `'${SHEET}'!G1:G5`,
+      "gsdiagT[Cost]",
+      "gsdiagT[[Item]:[Cost]]",
+      "gsdiagT",
+      NAMES[0],
+      "no_such_name",
+    ];
+    const reads = await officeAdapter.readRefs(refs, await diagSheetId());
+    const errorCell = reads[1];
+    const good = reads.slice(0, -1).every((r) => !("error" in r));
+    const ok =
+      good &&
+      "error" in reads[6] &&
+      !("error" in errorCell) &&
+      errorCell.errorCells[0]?.[0] === 4 &&
+      !("error" in reads[2]) &&
+      reads[2].ref?.address === "B2:B4";
+    return { ok, detail: reads };
+  });
+
+  await probe(results, "adapter reports a bad reference without losing the others", async () => {
+    const reads = await officeAdapter.readRefs(["F1", "NoSuchSheet!A1"], await diagSheetId());
+    return { ok: !("error" in reads[0]) && "error" in reads[1], detail: reads };
+  });
+
+  await probe(results, "adapter writes: null keeps a formula, empty string clears", async () => {
+    const sheetId = await diagSheetId();
+    await Excel.run(async (ctx) => {
+      ctx.workbook.worksheets.getItem(SHEET).getRange("J1:J3").formulas = [["=1+1"], [5], [6]];
+      await ctx.sync();
+    });
+    await officeAdapter.writeRanges([
+      { ref: { sheetId, address: "J1:J3" }, values: [[null], [""], [7]] },
+    ]);
+    return Excel.run(async (ctx) => {
+      const r = ctx.workbook.worksheets.getItem(SHEET).getRange("J1:J3").load("formulas");
+      await ctx.sync();
+      const f = r.formulas;
+      return { ok: f[0][0] === "=1+1" && f[1][0] === "" && f[2][0] === 7, detail: f };
+    });
+  });
+
+  await probe(results, "adapter creates a name and refuses a duplicate", async () => {
+    const ref = { sheetId: await diagSheetId(), address: "J1:J3" };
+    await officeAdapter.createName(NAMES[3], ref);
+    const [read] = await officeAdapter.readRefs([NAMES[3]], ref.sheetId);
+    const refused = await officeAdapter.createName(NAMES[3], ref).then(
+      () => false,
+      () => true,
+    );
+    const listed = (await officeAdapter.listNames()).includes(NAMES[3]);
+    const ok = !("error" in read) && read.ref?.address === "J1:J3" && refused && listed;
+    return { ok, detail: { read, refused, listed } };
+  });
+
+  await probe(results, "adapter reads the selection with its sheet", async () => {
+    await Excel.run(async (ctx) => {
+      const s = ctx.workbook.worksheets.getItem(SHEET);
+      s.activate();
+      s.getRange("A1:A2").select();
+      await ctx.sync();
+    });
+    const address = await officeAdapter.selection();
+    return { ok: address === `${SHEET}!A1:A2`, detail: address };
+  });
+
+  await probe(results, "OFFSET name made in Name Manager", () =>
+    Excel.run(async (ctx) => {
+      const named = ctx.workbook.names.getItemOrNullObject(USER_OFFSET_NAME).load("type,value");
+      await ctx.sync();
+      if (named.isNullObject) return { ok: true, detail: `no name ${USER_OFFSET_NAME}; skipped` };
+      const [read] = await officeAdapter.readRefs([USER_OFFSET_NAME], await diagSheetId());
+      return {
+        ok: !("error" in read),
+        detail: { type: named.type, value: named.value, read },
       };
     }),
   );
