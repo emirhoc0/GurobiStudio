@@ -3,21 +3,29 @@
 import os
 import secrets
 import sys
+import tempfile
 from pathlib import Path
 
 from starlette.responses import JSONResponse
 
 
 def load_or_create_secret(data_dir: Path, name: str) -> str:
+    """Create atomically so a crash or a concurrent start can never leave an empty secret."""
     data_dir.mkdir(parents=True, exist_ok=True)
     path = data_dir / name
-    try:
-        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-    except FileExistsError:
-        return path.read_text().strip()
-    secret = secrets.token_urlsafe(32)
-    with os.fdopen(fd, "w") as f:
-        f.write(secret)
+    if not path.exists():
+        fd, tmp = tempfile.mkstemp(dir=data_dir)  # mkstemp creates the file as 0600
+        try:
+            with os.fdopen(fd, "w") as f:
+                f.write(secrets.token_urlsafe(32))
+            os.link(tmp, path)
+        except FileExistsError:
+            pass  # another process won; use its value
+        finally:
+            os.unlink(tmp)
+    secret = path.read_text().strip()
+    if not secret:
+        raise RuntimeError(f"{path} is empty. Delete it and re-run scripts/install.sh.")
     return secret
 
 

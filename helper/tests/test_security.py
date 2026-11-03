@@ -1,9 +1,11 @@
 import stat
+from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 from fastapi.testclient import TestClient
 
 from gurobistudio.main import create_app
+from gurobistudio.security import load_or_create_secret
 
 
 @pytest.fixture
@@ -92,3 +94,18 @@ def test_page_withholds_token_without_key(env):
         r = client.get(url)
         assert r.status_code == 403, url
         assert token not in r.text
+
+
+def test_empty_secret_file_fails_closed(tmp_path):
+    (tmp_path / "token").write_text("")
+    with pytest.raises(RuntimeError, match="empty"):
+        load_or_create_secret(tmp_path, "token")
+    with pytest.raises(RuntimeError, match="empty"):
+        create_app(data_dir=tmp_path, dist_dir=tmp_path)
+
+
+def test_concurrent_creation_agrees_and_leaves_no_temp_files(tmp_path):
+    with ThreadPoolExecutor(8) as pool:
+        values = set(pool.map(lambda _: load_or_create_secret(tmp_path, "s"), range(32)))
+    assert len(values) == 1 and values != {""}
+    assert [p.name for p in tmp_path.iterdir()] == ["s"]
