@@ -306,22 +306,25 @@ export async function runDiagnostics(): Promise<{ results: ProbeResult[]; saved?
     });
   });
 
-  await probe(results, "adapter writes formula-like text as text", async () => {
+  await probe(results, "adapter stores result strings as exact text", async () => {
     const sheetId = await diagSheetId();
-    const built = buildItem(
-      { name: "x", type: "single", cellRange: "J5", indexRanges: [], readOnly: false },
-      { ref: { sheetId, address: "J5" }, values: [[""]], errorCells: [] },
-      [],
-    );
-    await officeAdapter.writeRanges([writeFor(built, "=1+1").write!]);
+    const texts = ["=1+1", " =1+1", "\uff1d1+1", "+1", "007", "1/2", "'x"];
+    const writes = texts.map((text, i) => {
+      const address = `J${5 + i}`;
+      const built = buildItem(
+        { name: "x", type: "single", cellRange: address, indexRanges: [], readOnly: false },
+        { ref: { sheetId, address }, values: [[""]], errorCells: [] },
+        [],
+      );
+      return writeFor(built, text).write!;
+    });
+    await officeAdapter.writeRanges(writes);
     return Excel.run(async (ctx) => {
-      const r = ctx.workbook.worksheets.getItem(SHEET).getRange("J5");
-      r.load("values,formulas,valueTypes");
+      const r = ctx.workbook.worksheets.getItem(SHEET).getRange(`J5:J${4 + texts.length}`);
+      r.load("values,valueTypes");
       await ctx.sync();
-      return {
-        ok: r.values[0][0] === "=1+1" && r.valueTypes[0][0] === "String",
-        detail: { values: r.values, formulas: r.formulas, types: r.valueTypes },
-      };
+      const ok = texts.every((t, i) => r.values[i][0] === t && r.valueTypes[i][0] === "String");
+      return { ok, detail: { values: r.values, types: r.valueTypes } };
     });
   });
 

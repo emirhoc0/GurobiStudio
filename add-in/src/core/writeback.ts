@@ -6,8 +6,9 @@ import { keyId, type BuiltItem, type Wire } from "./shapes";
 const isScalar = (v: unknown): v is Cell | null =>
   v === null || ["string", "number", "boolean"].includes(typeof v);
 
-// Excel parses a written "=..." as a formula. A leading apostrophe stores results as plain text.
-const asText = (v: Cell): Cell => (typeof v === "string" && /^[=+\-@]/.test(v) ? `'${v}` : v);
+// Excel parses written strings: "=..." as a formula, "007" as 7. A leading apostrophe stores any
+// string as exactly that text. All of them, because a list of risky prefixes is only ever a guess.
+const asText = (v: Cell): Cell => (typeof v === "string" && v !== "" ? `'${v}` : v);
 
 export function writeFor(
   built: BuiltItem,
