@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<OfficeApp xmlns="http://schemas.microsoft.com/office/appforoffice/1.1"
+           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+           xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"
+           xmlns:ov="http://schemas.microsoft.com/office/taskpaneappversionoverrides"
+           xsi:type="TaskPaneApp">
+  <Id>6f3c1d2a-8b47-4e59-a1c6-2d9e7f405b13</Id>
+  <Version>0.1.0.0</Version>
+  <ProviderName>Personal</ProviderName>
+  <DefaultLocale>en-US</DefaultLocale>
+  <DisplayName DefaultValue="GurobiStudio"/>
+  <Description DefaultValue="Write and solve Gurobi models inside Excel."/>
+  <IconUrl DefaultValue="{{BASE}}/icons/app-32.png"/>
+  <HighResolutionIconUrl DefaultValue="{{BASE}}/icons/app-64.png"/>
+  <SupportUrl DefaultValue="{{BASE}}/taskpane.html"/>
+  <Hosts><Host Name="Workbook"/></Hosts>
+  <Requirements>
+    <Sets DefaultMinVersion="1.1"><Set Name="SharedRuntime" MinVersion="1.1"/></Sets>
+  </Requirements>
+  <DefaultSettings><SourceLocation DefaultValue="{{BASE}}/taskpane.html"/></DefaultSettings>
+  <Permissions>ReadWriteDocument</Permissions>
+  <VersionOverrides xmlns="http://schemas.microsoft.com/office/taskpaneappversionoverrides" xsi:type="VersionOverridesV1_0">
+    <Hosts>
+      <Host xsi:type="Workbook">
+        <Runtimes><Runtime resid="Taskpane.Url" lifetime="long"/></Runtimes>
+        <DesktopFormFactor>
+          <FunctionFile resid="Taskpane.Url"/>
+          <ExtensionPoint xsi:type="PrimaryCommandSurface">
+            {{TAB_OPEN}}
+            <Group id="GS.Group">
+              <Label resid="Group.Label"/>
+              <Icon><bt:Image size="16" resid="app.16"/><bt:Image size="32" resid="app.32"/><bt:Image size="80" resid="app.80"/></Icon>
+              <Control xsi:type="Button" id="GS.EditData">
+                <Label resid="EditData.Label"/><Supertip><Title resid="EditData.Label"/><Description resid="EditData.Tip"/></Supertip><Icon><bt:Image size="16" resid="data.16"/><bt:Image size="32" resid="data.32"/><bt:Image size="80" resid="data.80"/></Icon><Action xsi:type="ExecuteFunction"><FunctionName>editData</FunctionName></Action>
+              </Control>
+              <Control xsi:type="Button" id="GS.ShowModel">
+                <Label resid="ShowModel.Label"/><Supertip><Title resid="ShowModel.Label"/><Description resid="ShowModel.Tip"/></Supertip><Icon><bt:Image size="16" resid="model.16"/><bt:Image size="32" resid="model.32"/><bt:Image size="80" resid="model.80"/></Icon><Action xsi:type="ExecuteFunction"><FunctionName>showModel</FunctionName></Action>
+              </Control>
+              <Control xsi:type="Button" id="GS.SolveModel">
+                <Label resid="SolveModel.Label"/><Supertip><Title resid="SolveModel.Label"/><Description resid="SolveModel.Tip"/></Supertip><Icon><bt:Image size="16" resid="solve.16"/><bt:Image size="32" resid="solve.32"/><bt:Image size="80" resid="solve.80"/></Icon><Action xsi:type="ExecuteFunction"><FunctionName>solveModel</FunctionName></Action>
+              </Control>
+              <Control xsi:type="Button" id="GS.Stop">
+                <Label resid="Stop.Label"/><Supertip><Title resid="Stop.Label"/><Description resid="Stop.Tip"/></Supertip><Icon><bt:Image size="16" resid="stop.16"/><bt:Image size="32" resid="stop.32"/><bt:Image size="80" resid="stop.80"/></Icon><Action xsi:type="ExecuteFunction"><FunctionName>stopSolve</FunctionName></Action>
+              </Control>
+              <Control xsi:type="Menu" id="GS.More">
+                <Label resid="More.Label"/><Supertip><Title resid="More.Label"/><Description resid="More.Tip"/></Supertip><Icon><bt:Image size="16" resid="menu.16"/><bt:Image size="32" resid="menu.32"/><bt:Image size="80" resid="menu.80"/></Icon>
+                <Items>
+                  <Item id="GS.Settings"><Label resid="Settings.Label"/><Supertip><Title resid="Settings.Label"/><Description resid="Settings.Tip"/></Supertip><Icon><bt:Image size="16" resid="menu.16"/><bt:Image size="32" resid="menu.32"/><bt:Image size="80" resid="menu.80"/></Icon><Action xsi:type="ExecuteFunction"><FunctionName>openSettings</FunctionName></Action></Item>
+                  <Item id="GS.Examples"><Label resid="Examples.Label"/><Supertip><Title resid="Examples.Label"/><Description resid="Examples.Tip"/></Supertip><Icon><bt:Image size="16" resid="menu.16"/><bt:Image size="32" resid="menu.32"/><bt:Image size="80" resid="menu.80"/></Icon><Action xsi:type="ExecuteFunction"><FunctionName>openExamples</FunctionName></Action></Item>
+                  <Item id="GS.WorkingFiles"><Label resid="WorkingFiles.Label"/><Supertip><Title resid="WorkingFiles.Label"/><Description resid="WorkingFiles.Tip"/></Supertip><Icon><bt:Image size="16" resid="menu.16"/><bt:Image size="32" resid="menu.32"/><bt:Image size="80" resid="menu.80"/></Icon><Action xsi:type="ExecuteFunction"><FunctionName>openWorkingFiles</FunctionName></Action></Item>
+                  <Item id="GS.Help"><Label resid="Help.Label"/><Supertip><Title resid="Help.Label"/><Description resid="Help.Tip"/></Supertip><Icon><bt:Image size="16" resid="menu.16"/><bt:Image size="32" resid="menu.32"/><bt:Image size="80" resid="menu.80"/></Icon><Action xsi:type="ExecuteFunction"><FunctionName>openHelp</FunctionName></Action></Item>
+                </Items>
+              </Control>
+            </Group>
+            {{TAB_CLOSE}}
+          </ExtensionPoint>
+        </DesktopFormFactor>
+      </Host>
+    </Hosts>
+    <Resources>
+      <bt:Images>
+        <bt:Image id="app.16" DefaultValue="{{BASE}}/icons/app-16.png"/>
+        <bt:Image id="app.32" DefaultValue="{{BASE}}/icons/app-32.png"/>
+        <bt:Image id="app.80" DefaultValue="{{BASE}}/icons/app-80.png"/>
+        <bt:Image id="data.16" DefaultValue="{{BASE}}/icons/data-16.png"/>
+        <bt:Image id="data.32" DefaultValue="{{BASE}}/icons/data-32.png"/>
+        <bt:Image id="data.80" DefaultValue="{{BASE}}/icons/data-80.png"/>
+        <bt:Image id="model.16" DefaultValue="{{BASE}}/icons/model-16.png"/>
+        <bt:Image id="model.32" DefaultValue="{{BASE}}/icons/model-32.png"/>
+        <bt:Image id="model.80" DefaultValue="{{BASE}}/icons/model-80.png"/>
+        <bt:Image id="solve.16" DefaultValue="{{BASE}}/icons/solve-16.png"/>
+        <bt:Image id="solve.32" DefaultValue="{{BASE}}/icons/solve-32.png"/>
+        <bt:Image id="solve.80" DefaultValue="{{BASE}}/icons/solve-80.png"/>
+        <bt:Image id="stop.16" DefaultValue="{{BASE}}/icons/stop-16.png"/>
+        <bt:Image id="stop.32" DefaultValue="{{BASE}}/icons/stop-32.png"/>
+        <bt:Image id="stop.80" DefaultValue="{{BASE}}/icons/stop-80.png"/>
+        <bt:Image id="menu.16" DefaultValue="{{BASE}}/icons/menu-16.png"/>
+        <bt:Image id="menu.32" DefaultValue="{{BASE}}/icons/menu-32.png"/>
+        <bt:Image id="menu.80" DefaultValue="{{BASE}}/icons/menu-80.png"/>
+      </bt:Images>
+      <bt:Urls>
+        <bt:Url id="Taskpane.Url" DefaultValue="{{BASE}}/taskpane.html"/>
+      </bt:Urls>
+      <bt:ShortStrings>
+        <bt:String id="Group.Label" DefaultValue="SolverStudio"/>
+        <bt:String id="More.Label" DefaultValue="More"/>
+        <bt:String id="EditData.Label" DefaultValue="Edit Data"/>
+        <bt:String id="ShowModel.Label" DefaultValue="Show Model"/>
+        <bt:String id="SolveModel.Label" DefaultValue="Solve Model"/>
+        <bt:String id="Stop.Label" DefaultValue="Stop"/>
+        <bt:String id="Settings.Label" DefaultValue="Settings"/>
+        <bt:String id="Examples.Label" DefaultValue="Examples"/>
+        <bt:String id="WorkingFiles.Label" DefaultValue="Working Files"/>
+        <bt:String id="Help.Label" DefaultValue="Help"/>
+      </bt:ShortStrings>
+      <bt:LongStrings>
+        <bt:String id="More.Tip" DefaultValue="Settings, examples, working files and help."/>
+        <bt:String id="EditData.Tip" DefaultValue="Define the data items bound to sheet cells."/>
+        <bt:String id="ShowModel.Tip" DefaultValue="Open the model editor."/>
+        <bt:String id="SolveModel.Tip" DefaultValue="Run the model and write results to the sheet."/>
+        <bt:String id="Stop.Tip" DefaultValue="Stop the running solve."/>
+        <bt:String id="Settings.Tip" DefaultValue="Solver parameters and license check."/>
+        <bt:String id="Examples.Tip" DefaultValue="Insert an example model on a new sheet."/>
+        <bt:String id="WorkingFiles.Tip" DefaultValue="Show the last run's files in Finder."/>
+        <bt:String id="Help.Tip" DefaultValue="How GurobiStudio works."/>
+      </bt:LongStrings>
+    </Resources>
+  </VersionOverrides>
+</OfficeApp>

@@ -1,0 +1,6 @@
+fastapi==0.162.0
+uvicorn==0.54.0
+gurobipy==13.0.3
+pytest==9.2.0
+ruff==0.17.3
+httpx==0.28.1

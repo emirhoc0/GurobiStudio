@@ -1,0 +1,17 @@
+# Never commit license material or local secrets
+*.lic
+*.pem
+*.key
+*.crt
+token
+gurobi.log
+
+.DS_Store
+.venv/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+node_modules/
+dist/
+*.tsbuildinfo
+add-in/manifest.generated.xml
