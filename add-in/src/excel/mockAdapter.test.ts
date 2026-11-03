@@ -56,3 +56,9 @@ describe("mock adapter", () => {
     ]);
   });
 });
+
+it("refuses a range over the cell limit before reading it", async () => {
+  const { adapter } = createMockAdapter();
+  const [result] = await adapter.readRefs(["A1:Z1048576"], "mock-sheet");
+  expect("error" in result && result.error).toContain("27,262,976 cells");
+});

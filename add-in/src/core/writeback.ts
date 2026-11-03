@@ -1,7 +1,7 @@
 // Turns a changed Python value back into cell writes. In Office.js null keeps a cell, so unchanged
 // formulas survive, and "" clears it, so leftovers are blanked. Easy to get backwards; see the tests.
 import type { Cell, RangeWrite } from "../excel/adapter";
-import { columnLetters, rectOf } from "./refs";
+import { columnLetters, overlaps, rectOf } from "./refs";
 import { keyId, type BuiltItem, type Wire } from "./shapes";
 
 const isScalar = (v: unknown): v is Cell | null =>
@@ -10,6 +10,8 @@ const isScalar = (v: unknown): v is Cell | null =>
 // Excel parses written strings: "=..." as a formula, "007" as 7. A leading apostrophe stores any
 // string as exactly that text. All of them, because a list of risky prefixes is only ever a guess.
 const asText = (v: Cell): Cell => (typeof v === "string" && v !== "" ? `'${v}` : v);
+
+const hasValues = (w: RangeWrite) => w.values.some((row) => row.some((v) => v !== null));
 
 export function writeFor(
   built: BuiltItem,
@@ -83,6 +85,38 @@ export function writeFor(
     : { warnings };
 }
 
+/** A result never replaces a read-only item's cells, even when another item points at them too. */
+export function keepReadOnly(
+  writes: RangeWrite[],
+  built: BuiltItem[],
+): { writes: RangeWrite[]; warnings: string[] } {
+  const warnings: string[] = [];
+  const locked = built.filter((b) => b.item.readOnly && b.ref);
+  const kept = writes.map((w) => {
+    let values = w.values;
+    const at = rectOf(w.ref.address);
+    for (const { item, ref } of locked) {
+      if (!overlaps(w.ref, ref!)) continue;
+      const lock = rectOf(ref!.address);
+      if (values === w.values) values = w.values.map((row) => [...row]);
+      let count = 0;
+      for (let r = Math.max(at.r1, lock.r1); r <= Math.min(at.r2, lock.r2); r++) {
+        for (let c = Math.max(at.c1, lock.c1); c <= Math.min(at.c2, lock.c2); c++) {
+          if (values[r - at.r1][c - at.c1] !== null) count++;
+          values[r - at.r1][c - at.c1] = null;
+        }
+      }
+      if (count) {
+        warnings.push(
+          `Kept ${count} cell(s) of read-only ${item.name} that results would have replaced.`,
+        );
+      }
+    }
+    return { ...w, values };
+  });
+  return { writes: kept.filter(hasValues), warnings };
+}
+
 /** Addresses of the cells a mask from formulaCells marks, for showing to the user. */
 export function maskedAddresses(writes: RangeWrite[], masks: boolean[][][]): string[] {
   return writes.flatMap((w, i) => {
@@ -100,5 +134,5 @@ export function keepMasked(writes: RangeWrite[], masks: boolean[][][]): RangeWri
       ...w,
       values: w.values.map((row, r) => row.map((v, c) => (masks[i][r][c] ? null : v))),
     }))
-    .filter((w) => w.values.some((row) => row.some((v) => v !== null)));
+    .filter(hasValues);
 }

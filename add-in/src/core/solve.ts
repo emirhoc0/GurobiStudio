@@ -16,10 +16,11 @@ import { whenLoaded } from "./persist";
 import { overlapWarnings, readItems, type BuiltItem, type Wire } from "./shapes";
 import { createSseParser } from "./sse";
 import { buildParams } from "./state";
-import { keepMasked, maskedAddresses, writeFor } from "./writeback";
+import { keepMasked, keepReadOnly, maskedAddresses, writeFor } from "./writeback";
 
 // The full log is in the run folder; this keeps a chatty model from slowing the pane.
 const MAX_LOG_LINES = 5000;
+const LOG_FLUSH_MS = 200;
 
 type RunEvent =
   | { type: "log"; line: string }
@@ -78,8 +79,32 @@ async function protectFormulas(
   };
 }
 
+// Reading a large sheet takes a while, and Stop has no run to cancel until the helper names one.
+let stopRequested = false;
+
+const cancelRun = (runId: string) => apiFetch(`/api/run/${runId}/cancel`, { method: "POST" });
+const markStopped = () => runStore.set({ ...runStore.get(), phase: "stopped" });
+
+async function handleBusy(runId: string | null) {
+  const stopIt =
+    runId !== null &&
+    (await askConfirm({
+      title: "Another solve is running",
+      body: "It may have started before this pane reloaded. Stop it? You can then solve again.",
+      confirm: "Stop it",
+      cancel: "Leave it running",
+    }));
+  if (!stopIt) {
+    fail("Another solve is still running.");
+    return;
+  }
+  await cancelRun(runId);
+  markStopped();
+}
+
 export async function solve(excel: ExcelAdapter) {
   if (runStore.get().phase === "running") return;
+  stopRequested = false;
   runStore.set({ phase: "running", log: [] });
   setTab("output");
   await whenLoaded();
@@ -100,6 +125,10 @@ export async function solve(excel: ExcelAdapter) {
     built = read;
   } catch (e) {
     fail(`Could not read the sheet. (${(e as Error).message})`);
+    return;
+  }
+  if (stopRequested) {
+    markStopped();
     return;
   }
   const readWarnings = overlapWarnings(built);
@@ -140,12 +169,20 @@ export async function solve(excel: ExcelAdapter) {
       start = await startRun(true);
     }
     if (start.status === 409) {
-      fail("Another solve is still running.");
+      await handleBusy((await start.json()).run_id ?? null);
       return;
     }
-    if (!start.ok) throw new Error(`Helper returned ${start.status}`);
+    if (!start.ok) {
+      const body = await start.json().catch(() => null);
+      if (body?.error) {
+        fail(body.error);
+        return;
+      }
+      throw new Error(`Helper returned ${start.status}`);
+    }
     const { run_id: runId } = await start.json();
     runStore.set({ ...runStore.get(), runId });
+    if (stopRequested) await cancelRun(runId);
 
     const stream = await apiFetch(`/api/run/${runId}/events`);
     if (!stream.ok || !stream.body) throw new Error(`Helper returned ${stream.status}`);
@@ -155,17 +192,24 @@ export async function solve(excel: ExcelAdapter) {
       if (event.type === "log") lines.push(event.line);
       else events.push(event);
     });
+    let flushTimer: ReturnType<typeof setTimeout> | undefined;
+    const flushLog = () => {
+      flushTimer = undefined;
+      if (!lines.length) return;
+      const shown = runStore.get();
+      runStore.set({ ...shown, log: [...shown.log, ...lines].slice(-MAX_LOG_LINES) });
+      lines = [];
+    };
     const reader = stream.body.getReader();
     for (;;) {
       const { done, value } = await reader.read();
       if (done) break;
       feed(value);
-      if (lines.length) {
-        const current = runStore.get();
-        runStore.set({ ...current, log: [...current.log, ...lines].slice(-MAX_LOG_LINES) });
-        lines = [];
-      }
+      // On a timer, because rendering the log on every chunk freezes the pane on a chatty model.
+      if (lines.length && flushTimer === undefined) flushTimer = setTimeout(flushLog, LOG_FLUSH_MS);
     }
+    clearTimeout(flushTimer);
+    flushLog();
 
     const final = events[events.length - 1];
     const current = runStore.get();
@@ -174,22 +218,25 @@ export async function solve(excel: ExcelAdapter) {
     } else if (final?.type === "error") {
       runStore.set({ ...current, phase: "failed", elapsed: final.elapsed, error: final.error });
     } else if (final?.type === "result") {
-      let writes: RangeWrite[] = [];
+      const proposed: RangeWrite[] = [];
       const warnings = [...readWarnings, ...final.warnings];
       for (const change of final.changed) {
         const item = built.find((b) => b.item.name === change.name);
         if (!item) continue;
         const result = writeFor(item, change.value);
-        if (result.write) writes.push(result.write);
+        if (result.write) proposed.push(result.write);
         warnings.push(...result.warnings);
       }
+      const guarded = keepReadOnly(proposed, built);
+      warnings.push(...guarded.warnings);
       try {
-        const kept = await protectFormulas(excel, writes);
-        writes = kept.writes;
+        const kept = await protectFormulas(excel, guarded.writes);
         warnings.push(...kept.warnings);
-        if (writes.length) await excel.writeRanges(writes);
+        if (kept.writes.length) await excel.writeRanges(kept.writes);
       } catch (e) {
-        fail(`The solve finished, but its results could not be written. (${(e as Error).message})`);
+        fail(
+          `The solve finished, but writing its results failed, and some of them may already be in the sheet. (${(e as Error).message})`,
+        );
         return;
       }
       runStore.set({
@@ -211,5 +258,7 @@ export async function solve(excel: ExcelAdapter) {
 
 export async function stop() {
   const { phase, runId } = runStore.get();
-  if (phase === "running" && runId) await apiFetch(`/api/run/${runId}/cancel`, { method: "POST" });
+  if (phase !== "running") return;
+  if (runId) await cancelRun(runId);
+  else stopRequested = true;
 }

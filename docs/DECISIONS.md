@@ -73,8 +73,11 @@ Each entry says what was chosen and why. "Proven" means tested in real Excel for
 - **A blank or repeated index key is an error**, since either would silently lose data.
 - **Whole rows and columns (`A:A`) are refused.** Reading a million cells freezes Excel. Use a bounded
   range, a Table column or a named range.
-- **Overlapping ranges warn, not block.** Only writable items count. Checked on resolved addresses, so
-  named ranges and tables are covered.
+- **Overlapping ranges warn, not block.** A pair counts if at least one item is writable. Checked on
+  resolved addresses, so named ranges and tables are covered.
+- **A read-only item's cells are never replaced by a result**, even when another item points at them.
+  The other cells are still written, with a warning. A real workbook lost its profit row this way: a
+  writable item was bound to the same cells as the read-only input, and no warning appeared.
 - **`Application` is refused as an item name**, because the runner puts the shim object there.
 - **Result strings are stored as exact text.** Every string is written with a leading apostrophe, so
   `=1+1` can't run as a formula and `007` stays `007`. Excel keeps the apostrophe as a hidden "text"
@@ -135,8 +138,9 @@ Each entry says what was chosen and why. "Proven" means tested in real Excel for
 - **The login item is opt-in** (`GS_LAUNCH_AGENT=1`). A repo under `~/Desktop` may hit macOS privacy
   limits for launchd jobs. Not yet tested, see `docs/TESTING.md`.
 - **Known issue: the first Show Model click after reopening a workbook does nothing.** A second click
-  opens the pane. Seen every time in real Excel, 5 of 5 tries. Solve Model as the first click works,
-  which is why nothing is at risk. Ruled out: the action being associated too late (it's now at the top
+  opens the pane. Seen every time in real Excel, 5 of 5 tries. Solve Model as the first click worked
+  then, but on two freshly opened workbooks on 2026-11-03 it showed no pane within 12 s, and a second
+  click did. Nothing is at risk, because a solve can't start twice. Ruled out: the action being associated too late (it's now at the top
   level), `showAsTaskpane` running before `onReady`, and whether the pane was open last session. Edit
   Data, Settings and Examples share this code path, but only Show Model was tried.
 - **Gurobi reports "no expiry" as `0`, `99991231` or `99999999`.** Check License shows no date for these.
@@ -150,3 +154,26 @@ Each entry says what was chosen and why. "Proven" means tested in real Excel for
 - **The page key is not stored in a saved workbook.** Searched the unzipped file.
 - **The pop-out's short edits reach the pane.** The size limit of `messageParent` was not tested in real
   Excel. The 300 KB test only covers the browser mock.
+
+## Big data
+
+Measured numbers and what is still unproven are in `docs/TESTING.md`.
+
+- **Target:** 1M input cells and 100k written cells. JSON stays the wire format, since 1M cells cost
+  about 30 MB and 0.3 s to encode.
+- **Office.js reads and writes go in row chunks of 100k cells or fewer per sync.** An estimate, not a
+  measured limit: real Excel has only run ranges too small to split.
+- **Ranges over 5M cells are refused before their values load.** Also an estimate, chosen to stop
+  `A1:Z1048576`, which gets past the whole-column refusal.
+- **Calculation is suspended on every sync but the last**, so a formula over the results recalculates
+  once. Whether dependents end up correct across chunks still needs the 100k-written check.
+- **A chunked write can stop midway**, so that error says some results may already be in the sheet.
+- **Run events are consumed as they're sent, and at most 50,000 wait in memory.** A very chatty model
+  loses the oldest unsent lines from the pane, never the result, and `log.txt` keeps every line. There
+  is one reader by design, so reopening a run's stream returns nothing.
+- **The snapshot is a one-level copy.** Item values are scalars and tuples, so nothing deeper can change.
+- **A re-solve can report an unchanged item as changed.** Excel keeps 15 significant digits, so a value
+  read back can differ slightly from Gurobi's. The only effect is a harmless rewrite and a `*`.
+- **Another solve still running now offers to stop it**, since a reloaded pane has lost its run id.
+- **The Data Items tab still reads whole ranges to preview them.** Left alone until real Excel shows
+  whether that's noticeable at 1M cells.

@@ -1,5 +1,10 @@
 export type Cell = string | number | boolean;
 
+/** Beyond this a range is refused before reading, because Excel would hang. */
+export const MAX_RANGE_CELLS = 5_000_000;
+export const tooManyCells = (ref: string, cells: number) =>
+  `${ref} has ${cells.toLocaleString("en-US")} cells, over the limit of ${MAX_RANGE_CELLS.toLocaleString("en-US")}. Use a smaller range.`;
+
 export interface RangeRef {
   sheetId: string;
   address: string;

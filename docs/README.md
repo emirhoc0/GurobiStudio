@@ -70,6 +70,16 @@ as read-only to protect its cells.
 - Run logs and files are in `~/Library/Application Support/GurobiStudio/runs/`, or use View Working
   Files. The newest 10 runs are kept, which you can change in Settings.
 
+## Big models
+
+Tested up to 1M input cells and 100k written cells on a test sheet. In real Excel it has only been
+proven at 10k cells so far, see `docs/TESTING.md`. To keep large models quick:
+
+- Use `addVars` and `quicksum`, not repeated `+=` on an expression.
+- Don't print a line per row. The pane keeps the last 5,000 lines, and the full log is in the run folder.
+- Use a bounded range, a Table column or a named range. Ranges over 5M cells are refused.
+- Mark inputs read-only. A result can then never replace them, even if another item's range is wrong.
+
 ## Troubleshooting
 
 | Problem | Try |

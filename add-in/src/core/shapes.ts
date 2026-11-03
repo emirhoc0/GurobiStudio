@@ -220,12 +220,18 @@ export async function readItems(
 }
 
 export function overlapWarnings(built: BuiltItem[]): string[] {
-  const writable = built.filter((b) => b.ref && !b.item.readOnly);
-  return writable.flatMap((a, i) =>
-    writable
+  const placed = built.filter((b) => b.ref);
+  return placed.flatMap((a, i) =>
+    placed
       .slice(i + 1)
-      .filter((b) => overlaps(a.ref!, b.ref!))
-      .map((b) => `${a.item.name} and ${b.item.name} share cells, so results can overwrite.`),
+      .filter((b) => !(a.item.readOnly && b.item.readOnly) && overlaps(a.ref!, b.ref!))
+      .map((b) => {
+        if (!a.item.readOnly && !b.item.readOnly) {
+          return `${a.item.name} and ${b.item.name} share cells, so results can overwrite.`;
+        }
+        const [locked, other] = a.item.readOnly ? [a, b] : [b, a];
+        return `${other.item.name} shares cells with read-only ${locked.item.name}. Those cells will keep their values, so check the range.`;
+      }),
   );
 }
 

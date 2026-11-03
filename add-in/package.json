@@ -7,7 +7,8 @@
     "build": "tsc --noEmit && vite build",
     "test": "vitest run",
     "lint": "eslint src && prettier --check src",
-    "e2e": "node e2e/acceptance.mjs"
+    "e2e": "node e2e/acceptance.mjs",
+    "e2e:big": "node e2e/big.mjs"
   },
   "dependencies": {
     "@codemirror/commands": "6.11.1",

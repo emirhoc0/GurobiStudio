@@ -1,4 +1,5 @@
 import { columnLetters, freeSheetName, parseRef, rectOf } from "../core/refs";
+import { MAX_RANGE_CELLS, tooManyCells } from "./adapter";
 import type { Cell, ExcelAdapter, RangeRef, RangeWrite, RefResult } from "./adapter";
 
 const ERROR_TEXT = /^#(N\/A|REF!|VALUE!|DIV\/0!|NAME\?|NUM!|NULL!)$/;
@@ -51,6 +52,9 @@ export function createMockAdapter(initial: Record<string, Cell> = {}, options: M
   };
 
   const read = (ref: RangeRef): RefResult => {
+    const { r1, c1, r2, c2 } = rectOf(ref.address);
+    const size = (r2 - r1 + 1) * (c2 - c1 + 1);
+    if (size > MAX_RANGE_CELLS) return { error: tooManyCells(ref.address, size) };
     const values = cellsOf(ref.address).map((row) =>
       row.map((a) => cells.get(key(ref.sheetId, a)) ?? ""),
     );

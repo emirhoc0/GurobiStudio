@@ -125,3 +125,30 @@ Light theme and install:
 - [ ] `GS_LAUNCH_AGENT=1 scripts/install.sh`: the helper runs after login, and `scripts/uninstall.sh`
       removes it. Never run. Stop any running helper first, because they share a port. Then check
       `helper.log` in the data folder, since macOS may block a launchd job from reading `~/Desktop`.
+
+## Big data
+
+`npm run e2e:big` (after `npm run build`) uses the real pane, helper and Gurobi on the mock sheet. It
+compares the objective with `gurobipy` run directly and with the written cells, and checks read-only
+inputs stay unchanged. Measured 2026-11-03 on an M3 Pro. Peak memory is helper plus runner.
+
+| Scenario | Cells in | Written | Solve | Total | Peak |
+| --- | --- | --- | --- | --- | --- |
+| Production plan, 2000 x 500, 1M nonzeros | 1,002,500 | 2,000 | 1.7 s | 3.8 s | 732 MB |
+| Transportation, 400 x 250 | 100,650 | 100,000 | 0.7 s | 1.4 s | 859 MB |
+| Model printing 1M lines | 1 | 1 | | | 250 MB |
+
+The mock sheet has no Office.js cost, so these totals say nothing about Excel's own speed. Stop ended
+a run within 1 s during model code and during a Gurobi solve. The pane answered within 17 ms throughout
+the 1M-line model.
+
+Real Excel, in throwaway workbooks:
+
+- [x] 10k cells (200 x 50): Optimal, and a `SUMPRODUCT` over the results equals the objective. 2026-11-03.
+      Too small to split into chunks, so this doesn't exercise chunking.
+- [ ] 100k cells written (transportation 400 x 250): every cell written, and the `SUMPRODUCT` equals the
+      objective after recalculation across chunks.
+- [ ] 1M cells read (plan 2000 x 500): solves, with times noted.
+- [ ] Stop during the read of a large range.
+- [ ] A range over 5M cells is refused with its cell count.
+

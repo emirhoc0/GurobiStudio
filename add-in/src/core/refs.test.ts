@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cellAt, localize, overlaps, parseRef, splitRefs } from "./refs";
+import { cellAt, localize, overlaps, parseRef, rowChunks, splitRefs } from "./refs";
 import { validateItem } from "./validate";
 import type { DataItem } from "./shapes";
 
@@ -111,5 +111,27 @@ describe("validateItem", () => {
     expect(errors({ type: "indexed", indexRanges: ["A1", "b c"] }).index0).toContain("not a cell");
     expect(errors({ type: "table", indexRanges: ["A1", ""] }).index1).toContain("column index");
     expect(errors({ type: "table", indexRanges: ["", "A1"] }).index0).toContain("row index");
+  });
+});
+
+describe("rowChunks", () => {
+  it("covers every row once, within the cell limit", () => {
+    expect(rowChunks(10, 3, 9)).toEqual([
+      { start: 0, count: 3 },
+      { start: 3, count: 3 },
+      { start: 6, count: 3 },
+      { start: 9, count: 1 },
+    ]);
+  });
+
+  it("keeps a small range whole", () => {
+    expect(rowChunks(2, 2, 100)).toEqual([{ start: 0, count: 2 }]);
+  });
+
+  it("takes at least one row, even when a row is over the limit", () => {
+    expect(rowChunks(2, 50, 10)).toEqual([
+      { start: 0, count: 1 },
+      { start: 1, count: 1 },
+    ]);
   });
 });

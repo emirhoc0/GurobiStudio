@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Cell } from "../excel/adapter";
 import { createMockAdapter } from "../excel/mockAdapter";
 import { buildItem, type BuiltItem, type DataItem, type ItemType, type Wire } from "./shapes";
-import { keepMasked, maskedAddresses, writeFor } from "./writeback";
+import { keepMasked, keepReadOnly, maskedAddresses, writeFor } from "./writeback";
 
 const def = (type: ItemType): DataItem => ({
   name: "x",
@@ -233,5 +233,53 @@ describe("keeping formula cells", () => {
         ],
       },
     ]);
+  });
+});
+
+describe("keepReadOnly", () => {
+  const locked = (name: string, address: string, sheetId = "s") =>
+    ({
+      item: { ...def("list"), name, readOnly: true },
+      ref: { sheetId, address },
+    }) as BuiltItem;
+  const write = (address: string, values: (Cell | null)[][], sheetId = "s") => ({
+    ref: { sheetId, address },
+    values,
+  });
+
+  it("drops a write that lands entirely on a read-only item", () => {
+    const { writes, warnings } = keepReadOnly(
+      [write("C5:G5", [[200, 100, 200, 100, 570]])],
+      [locked("Kar", "C5:G5")],
+    );
+    expect(writes).toEqual([]);
+    expect(warnings).toEqual(["Kept 5 cell(s) of read-only Kar that results would have replaced."]);
+  });
+
+  it("keeps the cells outside the read-only item, and doesn't count nulls", () => {
+    const { writes, warnings } = keepReadOnly(
+      [write("B2:C3", [[1, null], [3, 4]])], // prettier-ignore
+      [locked("k", "C2:D9")],
+    );
+    expect(writes[0].values).toEqual([
+      [1, null],
+      [3, null],
+    ]);
+    expect(warnings[0]).toContain("Kept 1 cell(s) of read-only k");
+  });
+
+  it("ignores a read-only item on another sheet or with no address", () => {
+    const writes = [write("A1", [[1]])];
+    const noAddress = { ...locked("n", "A1"), ref: null } as BuiltItem;
+    expect(keepReadOnly(writes, [locked("k", "A1", "other"), noAddress])).toEqual({
+      writes,
+      warnings: [],
+    });
+  });
+
+  it("leaves the original write untouched", () => {
+    const original = write("A1:B1", [[1, 2]]);
+    keepReadOnly([original], [locked("k", "A1")]);
+    expect(original.values).toEqual([[1, 2]]);
   });
 });

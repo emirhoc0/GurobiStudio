@@ -31,6 +31,7 @@ def load(path: Path) -> dict:
 
 def child_env(settings: dict) -> dict:
     env = dict(os.environ)
+    env["PYTHONIOENCODING"] = "utf-8"  # Turkish text mustn't depend on how the helper was launched
     if settings["license_path"]:
         env["GRB_LICENSE_FILE"] = settings["license_path"]
     return env

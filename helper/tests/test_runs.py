@@ -252,7 +252,7 @@ def test_second_run_while_busy_is_refused(api):
         "/api/run",
         json={"model": "x=1", "items": [], "params": {}, "workbook_id": "wb", "approved": True},
     )
-    assert r.status_code == 409 and r.json() == {"busy": True}
+    assert r.status_code == 409 and r.json()["busy"] is True
     api.post(f"/api/run/{run_id}/cancel")
     events(api, run_id)
 

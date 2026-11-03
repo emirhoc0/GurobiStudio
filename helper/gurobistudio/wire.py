@@ -21,9 +21,12 @@ def decode(value):
     return value
 
 
+def _plain(v):
+    tolist = getattr(v, "tolist", None)  # numpy scalars and arrays, pandas Series
+    return tolist() if callable(tolist) else v
+
+
 def _scalar(v):
-    if hasattr(v, "item") and callable(v.item):  # numpy scalars
-        v = v.item()
     if isinstance(v, float) and not math.isfinite(v):
         return str(v)  # inf and nan aren't valid JSON, so they reach the sheet as text
     if v is None or isinstance(v, bool | int | float | str):
@@ -32,10 +35,12 @@ def _scalar(v):
 
 
 def _entry(v):
+    v = _plain(v)
     return [_entry(x) for x in v] if isinstance(v, tuple | list) else _scalar(v)
 
 
 def encode(value):
+    value = _plain(value)
     if isinstance(value, dict):  # includes gurobipy.tupledict
         return {DICT_TAG: [[_entry(k), _entry(v)] for k, v in value.items()]}
     if isinstance(value, list | tuple):

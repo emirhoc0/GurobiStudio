@@ -74,9 +74,13 @@ def create_app(
             if not spec.get("approved"):
                 return JSONResponse({"trust_required": True}, 409)
             trust.add(fingerprint)
-        run = runs.start({k: spec.get(k) for k in ("model", "items", "params")})
+        try:
+            run = runs.start({k: spec.get(k) for k in ("model", "items", "params")})
+        except OSError as e:  # a Python that has moved, or a full disk
+            return JSONResponse({"error": f"Could not start the model. ({e})"}, 500)
         if run is None:
-            return JSONResponse({"busy": True}, 409)
+            active = runs.active()
+            return JSONResponse({"busy": True, "run_id": active.id if active else None}, 409)
         return {"run_id": run.id}
 
     @app.get("/api/run/{run_id}/events")
@@ -84,12 +88,14 @@ def create_app(
         run = get_run(run_id)
 
         async def stream():
-            sent = 0
+            # Events are consumed, so a large result isn't held once sent. The pane is the one reader.
             while True:
                 finished = run.finished  # read first, so nothing added before it is missed
-                while sent < len(run.events):
-                    yield f"data: {json.dumps(run.events[sent])}\n\n"
-                    sent += 1
+                chunks = []
+                while run.events:
+                    chunks.append(f"data: {json.dumps(run.events.popleft())}\n\n")
+                if chunks:
+                    yield "".join(chunks)
                 if finished:
                     return
                 await asyncio.sleep(0.05)  # ponytail: polling; one local client, so cost is nil

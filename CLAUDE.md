@@ -13,6 +13,7 @@ Excel for Mac add-in (Office.js) plus a local Python helper that runs gurobipy m
 - Helper tests: `cd helper && .venv/bin/pytest`, one file: `.venv/bin/pytest tests/test_wire.py`, lint: `.venv/bin/ruff check .`
 - Add-in: `cd add-in && npm run build`, `npm test`, one file: `npx vitest run src/core/sse.test.ts`, `npm run lint`
 - Browser acceptance, real helper and Gurobi on a spare port: `cd add-in && npm run build && npm run e2e`
+- Big-data acceptance, 1M cells end to end: `cd add-in && npm run build && npm run e2e:big` (`GS_BIG_SCALE=0.01` for a quick run)
 - Open the pane in a browser: `https://localhost:8765/?k=<page key>`, with the key from the `page_key` file in the data folder. The helper serves `add-in/dist`, so build first.
 - Regenerate ribbon icons: `python3 scripts/make_icons.py add-in/public/icons`
 - After manifest changes: re-run install, quit Excel, clear the cache (see docs/TESTING.md)

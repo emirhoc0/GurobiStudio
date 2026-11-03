@@ -101,6 +101,20 @@ export function cellAt(address: string, row: number, col: number): string {
   return columnLetters(c1 + col) + (r1 + row);
 }
 
+/** Splits a range into runs of rows of at most maxCells each, but always at least one row. */
+export function rowChunks(
+  rows: number,
+  cols: number,
+  maxCells: number,
+): { start: number; count: number }[] {
+  const size = Math.max(1, Math.floor(maxCells / cols));
+  const chunks = [];
+  for (let start = 0; start < rows; start += size) {
+    chunks.push({ start, count: Math.min(size, rows - start) });
+  }
+  return chunks;
+}
+
 export function overlaps(a: RangeRef, b: RangeRef): boolean {
   if (a.sheetId !== b.sheetId) return false;
   const [x, y] = [rectOf(a.address), rectOf(b.address)];

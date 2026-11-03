@@ -5,21 +5,30 @@ Results go to result.json, never stdout, so a model's print can't corrupt them.
 
 import copy
 import json
+import math
 import os
 import sys
 import traceback
 from pathlib import Path
 
-from .wire import NotSerializable, decode, encode
+from .wire import decode, encode
 
 MODEL_FILE = "model.py"
 STATUS_NAMES = {
+    1: "Loaded",
     2: "Optimal",
     3: "Infeasible",
     4: "Infeasible or unbounded",
     5: "Unbounded",
+    7: "Iteration limit",
+    8: "Node limit",
     9: "Time limit",
+    10: "Solution limit",
     11: "Interrupted",
+    13: "Suboptimal",
+    15: "User objective limit",
+    16: "Work limit",
+    17: "Memory limit",
 }
 HINTS = {
     "clr": "IronPython features such as clr are not supported.",
@@ -53,7 +62,7 @@ def error_info(exc: BaseException) -> dict:
 def is_same(final, snapshot) -> bool:
     try:
         return bool(final == snapshot)
-    except (ValueError, TypeError):  # e.g. numpy arrays have no single truth value
+    except Exception:  # noqa: BLE001  # numpy arrays and Gurobi Vars have no single truth value
         return False
 
 
@@ -65,11 +74,15 @@ def model_status(namespace: dict) -> tuple[str | None, float | None]:
     if not models:
         return None, None
     model = models[-1]
-    status = STATUS_NAMES.get(model.Status, f"Status {model.Status}")
     try:
-        return status, model.ObjVal
+        status = STATUS_NAMES.get(model.Status, f"Status {model.Status}")
+    except (AttributeError, gurobipy.GurobiError):  # the model called dispose()
+        return None, None
+    try:
+        objective = model.ObjVal
     except (AttributeError, gurobipy.GurobiError):
         return status, None
+    return status, objective if math.isfinite(objective) else None  # JSON can't hold inf or nan
 
 
 def collect_changes(spec_items, namespace, snapshot) -> tuple[list[dict], list[str]]:
@@ -85,19 +98,20 @@ def collect_changes(spec_items, namespace, snapshot) -> tuple[list[dict], list[s
         else:
             try:
                 changed.append({"name": name, "value": encode(namespace[name])})
-            except NotSerializable as e:
+            except Exception as e:  # noqa: BLE001  # one odd value mustn't lose the other results
                 warnings.append(f"{name} holds a value Excel can't store ({e}); not written back.")
     return changed, warnings
 
 
 def run(run_dir: Path) -> dict:
-    spec = json.loads((run_dir / "input.json").read_text())
+    spec = json.loads((run_dir / "input.json").read_text(encoding="utf-8"))
     source = spec["model"]
-    (run_dir / MODEL_FILE).write_text(source)
+    (run_dir / MODEL_FILE).write_text(source, encoding="utf-8")
     os.chdir(run_dir)
 
     items = {i["name"]: decode(i["value"]) for i in spec["items"]}
-    snapshot = copy.deepcopy(items)
+    # Values are scalars and tuples, so copying one level can't share anything a model can change.
+    snapshot = {name: copy.copy(value) for name, value in items.items()}
 
     sys.path.insert(0, str(Path(__file__).parent / "shim"))
     import SolverStudio

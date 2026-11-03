@@ -11,12 +11,13 @@ import subprocess
 import sys
 import threading
 import time
+from collections import deque
 from pathlib import Path
 
 from .settings import DEFAULTS, child_env
 
 # Gurobi logs these parameter names; drop the lines so nothing about the WLS login can leak.
-CREDENTIAL_LINE = re.compile(r"wls\s*(secret|accessid)|licenseid", re.IGNORECASE)
+CREDENTIAL_LINE = re.compile(r"wls[\s_-]*(secret|access[\s_-]*id)|license[\s_-]*id", re.IGNORECASE)
 # Gurobi's academic banner names the account's email. Copy log makes that easy to paste by accident.
 REGISTERED_TO = re.compile(r"(registered to\s+)\S+", re.IGNORECASE)
 LOG_STATUS = (
@@ -26,9 +27,12 @@ LOG_STATUS = (
 )
 HELPER_ROOT = Path(__file__).resolve().parents[1]
 KILL_AFTER_S = 3
+# Lines waiting for the pane. A chatty model drops the oldest; the full log is in the run folder.
+MAX_BUFFERED_EVENTS = 50_000
+STATUS_LOOKBACK_LINES = 200
 
 
-def status_from_log(lines: list[str]) -> str | None:
+def status_from_log(lines) -> str | None:
     # ponytail: only for models created inside functions; matches Gurobi's English log text.
     for line in reversed(lines):
         for pattern, name in LOG_STATUS:
@@ -37,12 +41,23 @@ def status_from_log(lines: list[str]) -> str | None:
     return None
 
 
+def scrub_error(error: dict) -> dict:
+    """A traceback quotes source lines and messages, so it can hold what the log filter removes."""
+    clean = dict(error)
+    if CREDENTIAL_LINE.search(str(error.get("message"))):
+        clean["message"] = "(hidden, because it names a license credential)"
+    if error.get("traceback"):
+        kept = [x for x in error["traceback"].split("\n") if not CREDENTIAL_LINE.search(x)]
+        clean["traceback"] = "\n".join(kept)
+    return clean
+
+
 class Run:
     def __init__(self, run_id: str, run_dir: Path, process: subprocess.Popen):
         self.id = run_id
         self.dir = run_dir
         self.process = process
-        self.events: list[dict] = [{"type": "status", "state": "running"}]
+        self.events = deque([{"type": "status", "state": "running"}], maxlen=MAX_BUFFERED_EVENTS)
         self.finished = False
         self.cancelled = False
         self.started = time.monotonic()
@@ -63,8 +78,11 @@ class RunManager:
         dirs = self._run_dirs()
         return dirs[-1] if dirs else None
 
+    def active(self) -> Run | None:
+        return next((r for r in self.runs.values() if not r.finished), None)
+
     def busy(self) -> bool:
-        return any(not r.finished for r in self.runs.values())
+        return self.active() is not None
 
     def start(self, spec: dict) -> Run | None:
         with self.lock:
@@ -81,7 +99,7 @@ class RunManager:
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 stdin=subprocess.DEVNULL,
-                text=True,
+                encoding="utf-8",
                 errors="replace",
                 bufsize=1,
                 start_new_session=True,  # its own process group, so Stop reaches everything
@@ -93,22 +111,29 @@ class RunManager:
         return run
 
     def _pump(self, run: Run):
-        lines: list[str] = []
-        with open(run.dir / "log.txt", "w") as log:
-            for raw in run.process.stdout:
-                line = raw.rstrip("\n")
-                if CREDENTIAL_LINE.search(line):
-                    continue
-                line = REGISTERED_TO.sub(r"\1(hidden)", line)
-                lines.append(line)
-                log.write(line + "\n")
-                log.flush()
-                run.events.append({"type": "log", "line": line})
-        run.process.wait()
-        run.events.extend(self._final_events(run, lines))
-        run.finished = True
+        lines: deque[str] = deque(maxlen=STATUS_LOOKBACK_LINES)
+        try:
+            with open(run.dir / "log.txt", "w", encoding="utf-8") as log:
+                for raw in run.process.stdout:
+                    line = raw.rstrip("\n")
+                    if CREDENTIAL_LINE.search(line):
+                        continue
+                    line = REGISTERED_TO.sub(r"\1(hidden)", line)
+                    lines.append(line)
+                    log.write(line + "\n")
+                    log.flush()
+                    run.events.append({"type": "log", "line": line})
+            run.process.wait()
+            run.events.extend(self._final_events(run, lines))
+        except Exception as e:  # noqa: BLE001  # a full disk, say; never leave the helper "busy"
+            self._signal(run.process.pid, signal.SIGKILL)
+            message = f"The helper lost track of this run. ({e})"
+            error = {"type": "Crash", "message": message, "line": None}
+            run.events.append({"type": "error", "elapsed": 0, "error": error})
+        finally:
+            run.finished = True
 
-    def _final_events(self, run: Run, lines: list[str]) -> list[dict]:
+    def _final_events(self, run: Run, lines) -> list[dict]:
         if run.cancelled:
             return [{"type": "status", "state": "stopped"}]
         elapsed = round(time.monotonic() - run.started, 2)
@@ -118,7 +143,7 @@ class RunManager:
             message = f"The model process ended unexpectedly (exit code {run.process.returncode})."
             result = {"ok": False, "error": {"type": "Crash", "message": message, "line": None}}
         if not result["ok"]:
-            return [{"type": "error", "elapsed": elapsed, "error": result["error"]}]
+            return [{"type": "error", "elapsed": elapsed, "error": scrub_error(result["error"])}]
         result["status"] = result["status"] or status_from_log(lines) or "Done"
         return [{"type": "result", "elapsed": elapsed, **result}]
 
@@ -128,9 +153,13 @@ class RunManager:
         run.cancelled = True
         pgid = run.process.pid  # start_new_session makes the child its group leader
         self._signal(pgid, signal.SIGINT)  # lets Gurobi stop and release its license token
-        timer = threading.Timer(KILL_AFTER_S, self._signal, (pgid, signal.SIGKILL))
+        timer = threading.Timer(KILL_AFTER_S, self._kill_unless_finished, (run,))
         timer.daemon = True
         timer.start()
+
+    def _kill_unless_finished(self, run: Run):
+        if not run.finished:  # afterwards the pid may belong to something else
+            self._signal(run.process.pid, signal.SIGKILL)
 
     @staticmethod
     def _signal(pgid: int, sig: signal.Signals):
@@ -143,7 +172,7 @@ class RunManager:
         if not self.runs_dir.exists():
             return []
         return sorted(
-            (p for p in self.runs_dir.iterdir() if p.is_dir()),
+            (p for p in self.runs_dir.iterdir() if p.is_dir() and p.name.split("-")[0].isdigit()),
             key=lambda p: int(p.name.split("-")[0]),
         )
 

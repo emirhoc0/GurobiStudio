@@ -219,7 +219,16 @@ describe("overlapWarnings", () => {
   it("warns on writable items that share cells, and not otherwise", () => {
     expect(overlapWarnings([at("a", "A1:A5"), at("b", "A5:B9")])).toHaveLength(1);
     expect(overlapWarnings([at("a", "A1:A4"), at("b", "A5:B9")])).toEqual([]);
-    expect(overlapWarnings([at("a", "A1:A5"), at("b", "A5:B9", true)])).toEqual([]);
+  });
+
+  it("warns when a result would land on a read-only item, naming both", () => {
+    const [warning] = overlapWarnings([at("Kar", "C5:G5", true), at("Uretim", "C5:G5")]);
+    expect(warning).toContain("Uretim");
+    expect(warning).toContain("read-only Kar");
+  });
+
+  it("doesn't warn when both items are read-only", () => {
+    expect(overlapWarnings([at("a", "A1:A5", true), at("b", "A5:B9", true)])).toEqual([]);
   });
 });
 
