@@ -3,16 +3,18 @@ import functools
 import json
 import os
 import secrets
+import subprocess
 import sys
 import time
 from importlib import metadata
 from pathlib import Path
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import __version__
+from .runs import Run, RunManager, TrustStore
 from .security import SecurityMiddleware, load_or_create_secret
 
 REPO = Path(__file__).resolve().parents[2]
@@ -52,6 +54,61 @@ def create_app(
             "python": sys.version.split()[0],
             **gurobi_info(),
         }
+
+    runs = RunManager(data_dir / "runs")
+    trust = TrustStore(data_dir / "trusted_models.json")
+
+    def get_run(run_id: str) -> Run:
+        run = runs.runs.get(run_id)
+        if run is None:
+            raise HTTPException(404, "Unknown run")
+        return run
+
+    @app.post("/api/run")
+    async def start_run(request: Request):
+        spec = await request.json()
+        fingerprint = trust.fingerprint(spec["model"], spec["workbook_id"])
+        if not trust.is_trusted(fingerprint):
+            if not spec.get("approved"):
+                return JSONResponse({"trust_required": True}, 409)
+            trust.add(fingerprint)
+        run = runs.start({k: spec.get(k) for k in ("model", "items", "params")})
+        if run is None:
+            return JSONResponse({"busy": True}, 409)
+        return {"run_id": run.id}
+
+    @app.get("/api/run/{run_id}/events")
+    async def run_events(run_id: str):
+        run = get_run(run_id)
+
+        async def stream():
+            sent = 0
+            while True:
+                finished = run.finished  # read first, so nothing added before it is missed
+                while sent < len(run.events):
+                    yield f"data: {json.dumps(run.events[sent])}\n\n"
+                    sent += 1
+                if finished:
+                    return
+                await asyncio.sleep(0.05)  # ponytail: polling; one local client, so cost is nil
+
+        return StreamingResponse(stream(), media_type="text/event-stream")
+
+    @app.post("/api/run/{run_id}/cancel")
+    def cancel_run(run_id: str):
+        runs.cancel(get_run(run_id))
+        return {"ok": True}
+
+    @app.get("/api/run/{run_id}/files")
+    def run_files(run_id: str):
+        run = get_run(run_id)
+        files = [{"name": p.name, "size": p.stat().st_size} for p in sorted(run.dir.iterdir())]
+        return {"dir": str(run.dir), "files": files}
+
+    @app.post("/api/run/{run_id}/reveal")
+    def reveal_run(run_id: str):
+        subprocess.run(["open", "-R", str(get_run(run_id).dir / "model.py")], check=False)
+        return {"ok": True}
 
     @app.post("/api/diag")
     async def diag(request: Request):

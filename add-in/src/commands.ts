@@ -1,6 +1,10 @@
+import { solve, stop } from "./core/solve";
+import { excel } from "./excel";
 import { setTab, type TabName } from "./ui/store";
 
-async function showPane(tab: TabName, event: Office.AddinCommands.Event) {
+type Event = Office.AddinCommands.Event;
+
+async function showPane(tab: TabName, event: Event) {
   try {
     setTab(tab);
     await Office.addin.showAsTaskpane();
@@ -10,11 +14,20 @@ async function showPane(tab: TabName, event: Office.AddinCommands.Event) {
 }
 
 export function registerCommands() {
-  const open = (tab: TabName) => (event: Office.AddinCommands.Event) => showPane(tab, event);
+  const open = (tab: TabName) => (event: Event) => showPane(tab, event);
   Office.actions.associate("editData", open("data"));
   Office.actions.associate("showModel", open("model"));
-  Office.actions.associate("solveModel", open("output"));
-  Office.actions.associate("stopSolve", (event: Office.AddinCommands.Event) => event.completed());
+  Office.actions.associate("solveModel", async (event: Event) => {
+    await showPane("output", event); // completes first, since a solve can run for hours
+    void solve(excel());
+  });
+  Office.actions.associate("stopSolve", async (event: Event) => {
+    try {
+      await stop();
+    } finally {
+      event.completed();
+    }
+  });
   Office.actions.associate("openSettings", open("settings"));
   Office.actions.associate("openExamples", open("model"));
   Office.actions.associate("openWorkingFiles", open("output"));

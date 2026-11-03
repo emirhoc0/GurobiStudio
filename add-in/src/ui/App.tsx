@@ -11,6 +11,7 @@ import {
 } from "@fluentui/react-components";
 import { getHealth, type Health } from "../core/api";
 import { runDiagnostics, type ProbeResult } from "../core/diagnostics";
+import { OutputTab } from "./OutputTab";
 import { setTab, useTab, type TabName } from "./store";
 
 const FONT = '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif';
@@ -86,7 +87,7 @@ export function App({ inExcel }: { inExcel: boolean }) {
       theme={theme}
       style={{ height: "100%", display: "flex", flexDirection: "column" }}
     >
-      <div style={{ padding: "8px 12px 0", display: "flex", justifyContent: "flex-end" }}>
+      <div style={{ padding: "8px 12px 0", display: "flex", justifyContent: "flex-start" }}>
         <HelperStatus />
       </div>
       <TabList
@@ -104,6 +105,8 @@ export function App({ inExcel }: { inExcel: boolean }) {
       <div style={{ padding: 12, overflow: "auto", flex: 1 }}>
         {tab === "settings" ? (
           <Diagnostics inExcel={inExcel} />
+        ) : tab === "output" ? (
+          <OutputTab />
         ) : (
           <Text>{TABS.find(([v]) => v === tab)![1]} is coming in a later milestone.</Text>
         )}

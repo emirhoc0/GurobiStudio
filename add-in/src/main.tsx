@@ -1,9 +1,19 @@
 import { createRoot } from "react-dom/client";
 import { registerCommands } from "./commands";
 import { runDialogSide } from "./core/diagnostics";
+import { setExcel } from "./excel";
+import { createMockAdapter } from "./excel/mockAdapter";
+import { officeAdapter } from "./excel/officeAdapter";
 import { App } from "./ui/App";
 
 function start(inExcel: boolean) {
+  if (inExcel) {
+    setExcel(officeAdapter);
+  } else {
+    const mock = createMockAdapter();
+    setExcel(mock.adapter);
+    Object.assign(window, { mockCells: mock.cells }); // lets browser tests inspect results
+  }
   createRoot(document.getElementById("root")!).render(<App inExcel={inExcel} />);
 }
 

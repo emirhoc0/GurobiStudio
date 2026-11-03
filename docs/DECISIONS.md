@@ -14,7 +14,7 @@ Each entry says what was chosen and why. "Proven" means tested in real Excel for
   `reserved_names` on `/api/health`.
 - **Streaming uses `fetch`** because `EventSource` cannot send an `Authorization` header.
 - **Button sizes are Office's choice.** An add-in manifest cannot mark a ribbon button large or
-  small, so Stop may not render small. Excel sizes controls to fit the ribbon.
+  small. Excel happened to render Stop small at the window width tested.
 
 ## From section 4 of the brief
 
@@ -58,8 +58,11 @@ Each entry says what was chosen and why. "Proven" means tested in real Excel for
 - **Theme:** `Office.context.officeTheme` is available, with `isDarkTheme`.
 - **Worksheet id:** survives a rename.
 
+- **Ribbon:** the group on the built-in Data tab (`TabData`) works, so no fallback was needed. Stop
+  renders small and the other three large. Excel for Mac showed no group titles in the test
+  screenshot, so the name "SolverStudio" may not be visible on the ribbon.
+
 ## Still to settle
 
-- Ribbon placement (`TabData`, then custom tab, then Home).
-- `OFFSET`-style names. The first probe's formula was rejected when creating the name, so reading
-  one is untested.
+- `OFFSET`-style names. `names.add` rejects the formula even with a quoted sheet name, so the API
+  can't create one. Reading one made in Excel's Name Manager is tested at M3.
