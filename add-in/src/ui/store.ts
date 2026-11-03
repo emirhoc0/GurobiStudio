@@ -38,6 +38,7 @@ function createStore<T>(initial: T) {
       value = next;
       listeners.forEach((l) => l());
     },
+    subscribe,
     use: () => useSyncExternalStore(subscribe, () => value),
   };
 }
@@ -48,6 +49,28 @@ export const useTab = tabStore.use;
 
 export const runStore = createStore<RunState>({ phase: "idle", log: [] });
 export const useRun = runStore.use;
+
+export const jumpStore = createStore<number | null>(null); // a model line the editor should select
+
+export interface ConfirmRequest {
+  title: string;
+  body: string;
+  code?: string;
+  confirm: string;
+  cancel: string;
+  resolve: (answer: boolean) => void;
+}
+export const confirmStore = createStore<ConfirmRequest | null>(null);
+export const askConfirm = (request: Omit<ConfirmRequest, "resolve">) =>
+  new Promise<boolean>((resolve) => confirmStore.set({ ...request, resolve }));
+
+export interface Notice {
+  text: string;
+  intent: "success" | "error" | "info";
+}
+export const noticeStore = createStore<Notice | null>(null);
+export const notify = (text: string, intent: Notice["intent"] = "info") =>
+  noticeStore.set({ text, intent });
 
 // ponytail: in memory until M5 saves these in the workbook. Both are keyed by worksheet id.
 export const itemsStore = createStore<Record<string, DataItem[]>>({});

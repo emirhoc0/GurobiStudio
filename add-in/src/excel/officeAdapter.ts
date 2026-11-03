@@ -161,4 +161,45 @@ export const officeAdapter: ExcelAdapter = {
       ctx.workbook.names.add(name, range);
       await ctx.sync();
     }),
+
+  formulaCells: (writes) =>
+    Excel.run(async (ctx) => {
+      const ranges = writes.map((w) =>
+        ctx.workbook.worksheets.getItem(w.ref.sheetId).getRange(w.ref.address).load("formulas"),
+      );
+      await ctx.sync();
+      return ranges.map((range, i) =>
+        (range.formulas as unknown[][]).map((row, r) =>
+          row.map(
+            (f, c) => writes[i].values[r][c] !== null && typeof f === "string" && f.startsWith("="),
+          ),
+        ),
+      );
+    }),
+
+  openEditorDialog: (onMessage, onClosed) =>
+    new Promise((resolve, reject) => {
+      const url = `${location.origin}${location.pathname}${location.search}&view=editor`;
+      Office.context.ui.displayDialogAsync(url, { width: 70, height: 85 }, (res) => {
+        if (res.status !== Office.AsyncResultStatus.Succeeded) {
+          reject(new Error(res.error.message));
+          return;
+        }
+        const dialog = res.value;
+        dialog.addEventHandler(Office.EventType.DialogMessageReceived, (arg) => {
+          onMessage((arg as { message: string }).message);
+        });
+        dialog.addEventHandler(Office.EventType.DialogEventReceived, () => onClosed());
+        resolve({ send: (message) => dialog.messageChild(message) });
+      });
+    }),
+
+  editorChannel: (onMessage) => {
+    Office.context.ui.addHandlerAsync(Office.EventType.DialogParentMessageReceived, (arg) => {
+      onMessage((arg as { message: string }).message);
+    });
+    return (message) => Office.context.ui.messageParent(message);
+  },
+
+  officeDark: () => Office.context.officeTheme?.isDarkTheme ?? null,
 };

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Cell } from "../excel/adapter";
 import { createMockAdapter } from "../excel/mockAdapter";
 import { buildItem, type BuiltItem, type DataItem, type ItemType, type Wire } from "./shapes";
-import { writeFor } from "./writeback";
+import { keepMasked, maskedAddresses, writeFor } from "./writeback";
 
 const def = (type: ItemType): DataItem => ({
   name: "x",
@@ -202,5 +202,36 @@ describe("no address", () => {
     const result = writeFor(b, [2]);
     expect(result.write).toBeUndefined();
     expect(result.warnings[0]).toContain("no address");
+  });
+});
+
+describe("keeping formula cells", () => {
+  const ref = { sheetId: "s", address: "B2:C3" };
+  const writes = [
+    { ref, values: [[1, null], [3, 4]] }, // prettier-ignore
+    { ref: { sheetId: "s", address: "E1" }, values: [[9]] },
+  ];
+  const masks = [
+    [
+      [true, false],
+      [false, true],
+    ],
+    [[true]],
+  ];
+
+  it("names the masked cells", () => {
+    expect(maskedAddresses(writes, masks)).toEqual(["B2", "C3", "E1"]);
+  });
+
+  it("nulls masked cells and drops writes with nothing left", () => {
+    expect(keepMasked(writes, masks)).toEqual([
+      {
+        ref,
+        values: [
+          [null, null],
+          [3, null],
+        ],
+      },
+    ]);
   });
 });

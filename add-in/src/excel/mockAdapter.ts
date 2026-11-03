@@ -35,6 +35,7 @@ export function createMockAdapter(initial: Record<string, Cell> = {}, options: M
   const cells = new Map(Object.entries(initial));
   const names = new Map(Object.entries(options.names ?? {}));
   const tables = new Map(Object.entries(options.tables ?? {}));
+  const formulas = new Map<string, string>(); // tests add a cell's formula here
   const listeners: (() => void)[] = [];
   let active = SHEETS[0];
   let selected = "Sheet1!A1";
@@ -97,6 +98,7 @@ export function createMockAdapter(initial: Record<string, Cell> = {}, options: M
           row.forEach((a, j) => {
             const value = w.values[i][j];
             if (value === null) return;
+            formulas.delete(key(w.ref.sheetId, a));
             if (value === "") cells.delete(key(w.ref.sheetId, a));
             // Excel stores a leading apostrophe as "this is text", not as part of the value.
             else
@@ -118,11 +120,39 @@ export function createMockAdapter(initial: Record<string, Cell> = {}, options: M
       const sheet = SHEETS.find((s) => s.id === ref.sheetId)?.name ?? "Sheet1";
       names.set(name, `${sheet}!${ref.address}`);
     },
+    formulaCells: async (writes) =>
+      writes.map((w) =>
+        cellsOf(w.ref.address).map((row, r) =>
+          row.map((a, c) => w.values[r][c] !== null && formulas.has(key(w.ref.sheetId, a))),
+        ),
+      ),
+    openEditorDialog: async (onMessage, onClosed) => {
+      const popup = window.open(`${location.pathname}${location.search}&view=editor`, "_blank")!;
+      const listen = (e: MessageEvent) => {
+        if (e.source === popup) onMessage(e.data);
+      };
+      addEventListener("message", listen);
+      const watch = setInterval(() => {
+        if (!popup.closed) return;
+        clearInterval(watch);
+        removeEventListener("message", listen);
+        onClosed();
+      }, 200);
+      return { send: (message) => popup.postMessage(message, location.origin) };
+    },
+    editorChannel: (onMessage) => {
+      addEventListener("message", (e) => {
+        if (e.source === window.opener) onMessage(e.data);
+      });
+      return (message) => window.opener.postMessage(message, location.origin);
+    },
+    officeDark: () => null,
   };
 
   return {
     adapter,
     cells,
+    formulas,
     names,
     tables,
     select: (address: string) => {

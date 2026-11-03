@@ -5,19 +5,32 @@ import { setExcel } from "./excel";
 import { createMockAdapter } from "./excel/mockAdapter";
 import { officeAdapter } from "./excel/officeAdapter";
 import { App } from "./ui/App";
+import { EditorWindow } from "./ui/EditorWindow";
+import { itemsStore, modelStore } from "./ui/store";
+
+const view = new URLSearchParams(location.search).get("view");
 
 function start(inExcel: boolean) {
+  if (view === "editor") {
+    setExcel(inExcel ? officeAdapter : createMockAdapter().adapter);
+    createRoot(document.getElementById("root")!).render(<EditorWindow />);
+    return;
+  }
   if (inExcel) {
     setExcel(officeAdapter);
   } else {
     const mock = createMockAdapter();
     setExcel(mock.adapter);
-    Object.assign(window, { mockCells: mock.cells, mockExcel: mock }); // for browser tests
+    // For browser tests.
+    Object.assign(window, {
+      mockCells: mock.cells,
+      mockExcel: mock,
+      gsModels: modelStore,
+      gsItems: itemsStore,
+    });
   }
   createRoot(document.getElementById("root")!).render(<App inExcel={inExcel} />);
 }
-
-const view = new URLSearchParams(location.search).get("view");
 
 if (typeof Office === "undefined") {
   start(false); // office.js could not load; still usable in a browser with the mock adapter
@@ -28,7 +41,7 @@ if (typeof Office === "undefined") {
       runDialogSide();
       return;
     }
-    if (info.host) registerCommands();
+    if (info.host && view !== "editor") registerCommands();
     start(Boolean(info.host));
   });
 }

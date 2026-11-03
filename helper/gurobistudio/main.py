@@ -105,10 +105,20 @@ def create_app(
         files = [{"name": p.name, "size": p.stat().st_size} for p in sorted(run.dir.iterdir())]
         return {"dir": str(run.dir), "files": files}
 
+    def reveal(run_dir: Path):
+        subprocess.run(["open", "-R", str(run_dir / "model.py")], check=False)
+        return {"ok": True}
+
     @app.post("/api/run/{run_id}/reveal")
     def reveal_run(run_id: str):
-        subprocess.run(["open", "-R", str(get_run(run_id).dir / "model.py")], check=False)
-        return {"ok": True}
+        return reveal(get_run(run_id).dir)
+
+    @app.post("/api/runs/latest/reveal")
+    def reveal_latest():
+        latest = runs.latest_dir()
+        if latest is None:
+            raise HTTPException(404, "No runs yet")
+        return reveal(latest)
 
     @app.post("/api/diag")
     async def diag(request: Request):

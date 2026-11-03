@@ -1,33 +1,15 @@
 import { useEffect, useState } from "react";
-import {
-  Badge,
-  Button,
-  FluentProvider,
-  Tab,
-  TabList,
-  Text,
-  webDarkTheme,
-  webLightTheme,
-} from "@fluentui/react-components";
+import { Badge, Button, Tab, TabList, Text } from "@fluentui/react-components";
 import { getHealth, type Health } from "../core/api";
 import { runDiagnostics, type ProbeResult } from "../core/diagnostics";
+import { solve, stop } from "../core/solve";
+import { excel } from "../excel";
+import { ConfirmDialog, Notices } from "./ConfirmDialog";
 import { DataItemsTab } from "./DataItemsTab";
 import { ModelTab } from "./ModelTab";
 import { OutputTab } from "./OutputTab";
 import { setTab, useTab, type TabName } from "./store";
-
-const FONT = '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif';
-
-function useDark() {
-  const [dark, setDark] = useState(() => matchMedia("(prefers-color-scheme: dark)").matches);
-  useEffect(() => {
-    const query = matchMedia("(prefers-color-scheme: dark)");
-    const update = () => setDark(query.matches);
-    query.addEventListener("change", update);
-    return () => query.removeEventListener("change", update);
-  }, []);
-  return dark;
-}
+import { Themed, useRunShortcuts } from "./Themed";
 
 function HelperStatus() {
   const [health, setHealth] = useState<Health | null>(null);
@@ -82,13 +64,12 @@ const TABS: [TabName, string][] = [
 
 export function App({ inExcel }: { inExcel: boolean }) {
   const tab = useTab();
-  const base = useDark() ? webDarkTheme : webLightTheme;
-  const theme = { ...base, fontFamilyBase: FONT };
+  useRunShortcuts(
+    () => void solve(excel()),
+    () => void stop(),
+  );
   return (
-    <FluentProvider
-      theme={theme}
-      style={{ height: "100%", display: "flex", flexDirection: "column" }}
-    >
+    <Themed>
       <div style={{ padding: "8px 12px 0", display: "flex", justifyContent: "flex-start" }}>
         <HelperStatus />
       </div>
@@ -105,14 +86,18 @@ export function App({ inExcel }: { inExcel: boolean }) {
         ))}
       </TabList>
       <div style={{ padding: 12, overflow: "auto", flex: 1 }}>
-        {/* Stays mounted, so a half-filled form survives a look at another tab. */}
+        {/* These stay mounted: a half-filled form and the editor's undo history survive a tab switch. */}
         <div hidden={tab !== "data"}>
           <DataItemsTab />
         </div>
+        <div style={{ height: "100%", display: tab === "model" ? "block" : "none" }}>
+          <ModelTab />
+        </div>
         {tab === "settings" && <Diagnostics inExcel={inExcel} />}
         {tab === "output" && <OutputTab />}
-        {tab === "model" && <ModelTab />}
       </div>
-    </FluentProvider>
+      <ConfirmDialog />
+      <Notices />
+    </Themed>
   );
 }

@@ -104,17 +104,16 @@ def run(run_dir: Path) -> dict:
 
     SolverStudio._install(items)
 
-    if spec.get("params"):
-        import gurobipy
-
-        for key, value in spec["params"].items():
-            gurobipy.setParam(key, value)
-
     # Same objects as in the SolverStudio module, so in-place edits and reassignment both show up.
     namespace = {"__name__": "__main__", "__file__": MODEL_FILE, **items}
     namespace["Application"] = SolverStudio.Application
 
     try:
+        if spec.get("params"):
+            import gurobipy
+
+            for key, value in spec["params"].items():
+                gurobipy.setParam(key, value)
         exec(compile(source, MODEL_FILE, "exec"), namespace)  # noqa: S102  # running it is the point
     except SystemExit as e:
         if e.code not in (None, 0):

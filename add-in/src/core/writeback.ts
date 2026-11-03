@@ -1,6 +1,7 @@
 // Turns a changed Python value back into cell writes. In Office.js null keeps a cell, so unchanged
 // formulas survive, and "" clears it, so leftovers are blanked. Easy to get backwards; see the tests.
 import type { Cell, RangeWrite } from "../excel/adapter";
+import { columnLetters, rectOf } from "./refs";
 import { keyId, type BuiltItem, type Wire } from "./shapes";
 
 const isScalar = (v: unknown): v is Cell | null =>
@@ -80,4 +81,24 @@ export function writeFor(
   return next.some((row) => row.some((v) => v !== null))
     ? { write: { ref, values: next }, warnings }
     : { warnings };
+}
+
+/** Addresses of the cells a mask from formulaCells marks, for showing to the user. */
+export function maskedAddresses(writes: RangeWrite[], masks: boolean[][][]): string[] {
+  return writes.flatMap((w, i) => {
+    const { r1, c1 } = rectOf(w.ref.address);
+    return masks[i].flatMap((row, r) =>
+      row.flatMap((hit, c) => (hit ? [`${columnLetters(c1 + c)}${r1 + r}`] : [])),
+    );
+  });
+}
+
+/** Leaves masked cells alone, and drops a write with nothing left to do. */
+export function keepMasked(writes: RangeWrite[], masks: boolean[][][]): RangeWrite[] {
+  return writes
+    .map((w, i) => ({
+      ...w,
+      values: w.values.map((row, r) => row.map((v, c) => (masks[i][r][c] ? null : v))),
+    }))
+    .filter((w) => w.values.some((row) => row.some((v) => v !== null)));
 }

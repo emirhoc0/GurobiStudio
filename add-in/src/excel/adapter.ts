@@ -21,6 +21,11 @@ export interface RefRead {
 
 export type RefResult = RefRead | { error: string };
 
+/** The pane's side of the pop-out editor. */
+export interface EditorDialog {
+  send(message: string): void;
+}
+
 export interface ExcelAdapter {
   activeSheet(): Promise<{ id: string; name: string }>;
   onSheetActivated(listener: () => void): void;
@@ -34,4 +39,15 @@ export interface ExcelAdapter {
   listNames(): Promise<string[]>;
   /** Creates a workbook-level name. Rejects when Excel refuses the name or it already exists. */
   createName(name: string, ref: RangeRef): Promise<void>;
+  /** For each write, which of its non-null cells currently hold a formula. */
+  formulaCells(writes: RangeWrite[]): Promise<boolean[][][]>;
+  /** Opens this page with view=editor in a dialog. */
+  openEditorDialog(
+    onMessage: (message: string) => void,
+    onClosed: () => void,
+  ): Promise<EditorDialog>;
+  /** Called inside that dialog: listens to the pane and returns how to send to it. */
+  editorChannel(onMessage: (message: string) => void): (message: string) => void;
+  /** Excel's own theme, or null when it doesn't say. */
+  officeDark(): boolean | null;
 }

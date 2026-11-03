@@ -15,6 +15,8 @@ from pathlib import Path
 
 # Gurobi logs these parameter names; drop the lines so nothing about the WLS login can leak.
 CREDENTIAL_LINE = re.compile(r"wls\s*(secret|accessid)|licenseid", re.IGNORECASE)
+# Gurobi's academic banner names the account's email. Copy log makes that easy to paste by accident.
+REGISTERED_TO = re.compile(r"(registered to\s+)\S+", re.IGNORECASE)
 LOG_STATUS = (
     (re.compile(r"optimal (objective|solution)", re.IGNORECASE), "Optimal"),
     (re.compile(r"(model is )?infeasible( model)?\b", re.IGNORECASE), "Infeasible"),
@@ -51,6 +53,11 @@ class RunManager:
         self.runs: dict[str, Run] = {}
         self.lock = threading.Lock()
 
+    def latest_dir(self) -> Path | None:
+        """The newest run folder, on disk, so it survives a helper restart."""
+        dirs = self._run_dirs()
+        return dirs[-1] if dirs else None
+
     def busy(self) -> bool:
         return any(not r.finished for r in self.runs.values())
 
@@ -86,6 +93,7 @@ class RunManager:
                 line = raw.rstrip("\n")
                 if CREDENTIAL_LINE.search(line):
                     continue
+                line = REGISTERED_TO.sub(r"\1(hidden)", line)
                 lines.append(line)
                 log.write(line + "\n")
                 log.flush()
@@ -125,12 +133,16 @@ class RunManager:
         except ProcessLookupError:
             pass
 
-    def _prune(self):
-        dirs = sorted(
+    def _run_dirs(self) -> list[Path]:
+        if not self.runs_dir.exists():
+            return []
+        return sorted(
             (p for p in self.runs_dir.iterdir() if p.is_dir()),
             key=lambda p: int(p.name.split("-")[0]),
         )
-        for old in dirs[: -self.keep]:
+
+    def _prune(self):
+        for old in self._run_dirs()[: -self.keep]:
             shutil.rmtree(old, ignore_errors=True)
             self.runs.pop(old.name, None)
 

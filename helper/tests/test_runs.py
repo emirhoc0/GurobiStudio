@@ -271,6 +271,32 @@ def test_unknown_run_is_404(api):
     assert api.post("/api/run/nope/cancel").status_code == 404
 
 
+def test_registered_email_is_hidden_in_stream_and_file(api):
+    run_id = start(api, 'print("Academic license - registered to someone@example.com")\n')
+    evs = events(api, run_id)
+    lines = [e["line"] for e in evs if e["type"] == "log"]
+    assert "Academic license - registered to (hidden)" in lines
+    files = api.get(f"/api/run/{run_id}/files").json()
+    assert "someone@example.com" not in (Path(files["dir"]) / "log.txt").read_text()
+
+
+def test_bad_gurobi_param_gets_an_error_card(api):
+    final, _ = solve(api, "x = 1\n", params={"NoSuchParameter": 1})
+    assert final["type"] == "error"
+    assert final["error"]["type"] == "GurobiError"
+    assert "NoSuchParameter" in final["error"]["message"]
+
+
+def test_reveal_latest(api, monkeypatch):
+    opened = []
+    monkeypatch.setattr("subprocess.run", lambda cmd, check: opened.append(cmd))
+    assert api.post("/api/runs/latest/reveal").status_code == 404
+    run_id = start(api, "x = 1\n")
+    events(api, run_id)
+    assert api.post("/api/runs/latest/reveal").status_code == 200
+    assert opened[0][:2] == ["open", "-R"] and run_id in opened[0][2]
+
+
 def test_status_from_log():
     assert status_from_log(["Optimal objective  1.0"]) == "Optimal"
     assert status_from_log(["Model is infeasible"]) == "Infeasible"

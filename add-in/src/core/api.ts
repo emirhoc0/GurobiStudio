@@ -23,3 +23,11 @@ export async function getHealth(): Promise<Health> {
   if (!res.ok) throw new Error(`Helper returned ${res.status}`);
   return res.json();
 }
+
+/** Reveals the newest run's folder in Finder. False when there are no runs yet. */
+export async function revealLatestRun(): Promise<boolean> {
+  const res = await apiFetch("/api/runs/latest/reveal", { method: "POST" });
+  if (res.status === 404) return false;
+  if (!res.ok) throw new Error(`Helper returned ${res.status}`);
+  return true;
+}
