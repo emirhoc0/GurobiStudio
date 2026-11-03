@@ -98,7 +98,12 @@ export function createMockAdapter(initial: Record<string, Cell> = {}, options: M
             const value = w.values[i][j];
             if (value === null) return;
             if (value === "") cells.delete(key(w.ref.sheetId, a));
-            else cells.set(key(w.ref.sheetId, a), value);
+            // Excel stores a leading apostrophe as "this is text", not as part of the value.
+            else
+              cells.set(
+                key(w.ref.sheetId, a),
+                String(value).startsWith("'") ? String(value).slice(1) : value,
+              );
           }),
         );
       }

@@ -6,6 +6,9 @@ import { keyId, type BuiltItem, type Wire } from "./shapes";
 const isScalar = (v: unknown): v is Cell | null =>
   v === null || ["string", "number", "boolean"].includes(typeof v);
 
+// Excel parses a written "=..." as a formula. A leading apostrophe stores results as plain text.
+const asText = (v: Cell): Cell => (typeof v === "string" && /^[=+\-@]/.test(v) ? `'${v}` : v);
+
 export function writeFor(
   built: BuiltItem,
   value: Wire,
@@ -25,7 +28,7 @@ export function writeFor(
       return;
     }
     const cell = v ?? "";
-    if (cell !== old[r][c]) next[r][c] = cell;
+    if (cell !== old[r][c]) next[r][c] = asText(cell);
   };
   const refuse = (shape: string) => ({
     warnings: [`${name} should hold ${shape}, but the model gave it something else; not written.`],

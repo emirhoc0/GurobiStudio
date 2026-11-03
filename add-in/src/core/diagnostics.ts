@@ -2,6 +2,8 @@
 // and posts the report to the helper so results can be read without copying from the pane.
 import { officeAdapter } from "../excel/officeAdapter";
 import { apiFetch } from "./api";
+import { buildItem } from "./shapes";
+import { writeFor } from "./writeback";
 
 export interface ProbeResult {
   name: string;
@@ -301,6 +303,25 @@ export async function runDiagnostics(): Promise<{ results: ProbeResult[]; saved?
       await ctx.sync();
       const f = r.formulas;
       return { ok: f[0][0] === "=1+1" && f[1][0] === "" && f[2][0] === 7, detail: f };
+    });
+  });
+
+  await probe(results, "adapter writes formula-like text as text", async () => {
+    const sheetId = await diagSheetId();
+    const built = buildItem(
+      { name: "x", type: "single", cellRange: "J5", indexRanges: [], readOnly: false },
+      { ref: { sheetId, address: "J5" }, values: [[""]], errorCells: [] },
+      [],
+    );
+    await officeAdapter.writeRanges([writeFor(built, "=1+1").write!]);
+    return Excel.run(async (ctx) => {
+      const r = ctx.workbook.worksheets.getItem(SHEET).getRange("J5");
+      r.load("values,formulas,valueTypes");
+      await ctx.sync();
+      return {
+        ok: r.values[0][0] === "=1+1" && r.valueTypes[0][0] === "String",
+        detail: { values: r.values, formulas: r.formulas, types: r.valueTypes },
+      };
     });
   });
 

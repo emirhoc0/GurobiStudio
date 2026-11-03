@@ -62,6 +62,36 @@ describe("null keeps, empty string clears", () => {
   });
 });
 
+describe("text that looks like a formula", () => {
+  const one = (old: Cell) => buildItem(def("single"), read("A1", [[old]]), []);
+
+  it.each(["=HYPERLINK(1)", "+1", "-abc", "@x"])("stores %s as text", (text) => {
+    expect(writeFor(one(""), text).write!.values).toEqual([[`'${text}`]]);
+  });
+
+  it("leaves ordinary values as they are", () => {
+    expect(writeFor(one(""), "a=b").write!.values).toEqual([["a=b"]]);
+    expect(writeFor(one(""), -5).write!.values).toEqual([[-5]]);
+  });
+
+  it("sees text already in the cell as unchanged", () => {
+    expect(writeFor(one("=x"), "=x").write).toBeUndefined();
+  });
+
+  it("reads back as the same text through the adapter", async () => {
+    const { adapter, cells } = createMockAdapter();
+    await adapter.writeRanges([writeFor(one(""), "=1+1").write!]);
+    expect(cells.get("A1")).toBe("=1+1");
+  });
+
+  it("applies to dict and list items too", () => {
+    expect(writeFor(list("A1", [[""]]), ["=x"]).write!.values).toEqual([["'=x"]]);
+    expect(writeFor(indexed([[""], [""], [""]]), d([["a", "=x"]])).write!.values[0]).toEqual([
+      "'=x",
+    ]);
+  });
+});
+
 describe("single", () => {
   it("refuses a list", () => {
     const b = buildItem(def("single"), read("A1", [[5]]), []);

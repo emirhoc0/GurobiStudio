@@ -76,6 +76,9 @@ Each entry says what was chosen and why. "Proven" means tested in real Excel for
 - **Overlapping ranges warn, not block.** Only writable items count. Checked on resolved addresses, so
   named ranges and tables are covered.
 - **`Application` is refused as an item name**, because the runner puts the shim object there.
+- **Results are data, never formulas.** A string starting with `=`, `+`, `-` or `@` is written with a
+  leading apostrophe, so Excel stores it as text. Numbers are unaffected. Models can't write formulas;
+  add an explicit opt-in if that's ever wanted. Found by the automated security review of the M3 commit.
 - **Named range creation** names the Cell Range only, at workbook scope, using the item's name. A name
   Excel refuses (`x1`, `c`, `r`) shows Excel's message.
 - **Formula names.** Where Excel gives a name's values but no address, the item still reads, and a
