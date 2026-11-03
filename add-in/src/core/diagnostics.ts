@@ -14,7 +14,7 @@ export interface ProbeResult {
 
 const SHEET = "_gsdiag";
 const SHEET2 = "_gsdiag2";
-const NAMES = ["gsdiag_plain", "gsdiag_tbl", "gsdiag_off", "gsdiag_made"];
+const NAMES = ["gsdiag_plain", "gsdiag_tbl", "gsdiag_made"];
 // Excel's API can't create an OFFSET name, so this one is made by hand and never deleted here.
 const USER_OFFSET_NAME = "gs_offset";
 const NS = "urn:gurobistudio:diag";
@@ -234,26 +234,6 @@ export async function runDiagnostics(): Promise<{ results: ProbeResult[]; saved?
     }),
   );
 
-  await probe(results, "OFFSET-style dynamic name", () =>
-    Excel.run(async (ctx) => {
-      ctx.workbook.names.add(NAMES[2], `=OFFSET('${SHEET}'!$A$1,0,0,2,1)`);
-      await ctx.sync();
-      const named = ctx.workbook.names.getItem(NAMES[2]);
-      named.load("type,formula,value");
-      const r = named.getRangeOrNullObject();
-      r.load("address");
-      await ctx.sync();
-      return {
-        ok: !r.isNullObject,
-        detail: {
-          type: named.type,
-          value: named.value,
-          address: r.isNullObject ? null : r.address,
-        },
-      };
-    }),
-  );
-
   const diagSheetId = () =>
     Excel.run(async (ctx) => {
       const s = ctx.workbook.worksheets.getItem(SHEET).load("id");
@@ -330,13 +310,13 @@ export async function runDiagnostics(): Promise<{ results: ProbeResult[]; saved?
 
   await probe(results, "adapter creates a name and refuses a duplicate", async () => {
     const ref = { sheetId: await diagSheetId(), address: "J1:J3" };
-    await officeAdapter.createName(NAMES[3], ref);
-    const [read] = await officeAdapter.readRefs([NAMES[3]], ref.sheetId);
-    const refused = await officeAdapter.createName(NAMES[3], ref).then(
+    await officeAdapter.createName(NAMES[2], ref);
+    const [read] = await officeAdapter.readRefs([NAMES[2]], ref.sheetId);
+    const refused = await officeAdapter.createName(NAMES[2], ref).then(
       () => false,
       () => true,
     );
-    const listed = (await officeAdapter.listNames()).includes(NAMES[3]);
+    const listed = (await officeAdapter.listNames()).includes(NAMES[2]);
     const ok = !("error" in read) && read.ref?.address === "J1:J3" && refused && listed;
     return { ok, detail: { read, refused, listed } };
   });

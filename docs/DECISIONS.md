@@ -93,7 +93,15 @@ Each entry says what was chosen and why. "Proven" means tested in real Excel for
 - **`approved: true` stays until M4's trust prompt**, under a throwaway workbook id. Models can only be
   typed by hand until M5 loads them from a workbook, so no workbook can reach this path.
 
-## Still to settle
+## Proven by M3 diagnostics (Excel for Mac, 2026-11-03)
 
-- `OFFSET`-style names. `names.add` rejects the formula even with a quoted sheet name, so the API
-  can't create one. Reading one made in Excel's Name Manager is awaiting the diagnostics result.
+- **Reading and writing through the adapter:** addresses, quoted sheet names, `Table[Col]`,
+  `Table[[A]:[B]]`, a bare table name, named ranges, error cells and the selection address all work.
+  A bad reference is reported alone and the others still read. `null` keeps a formula and `""` clears.
+- **Result strings stay exact text:** `=1+1`, ` =1+1`, the full-width `＝1+1`, `+1`, `007`, `1/2` and
+  `'x` all read back unchanged with type `String`.
+- **`OFFSET` names work fully.** One made in Name Manager has type `Range` and resolves to an address,
+  so it can be read and written like any other range, with no fallback. The API still can't create one:
+  `names.add` rejected it with `InvalidArgument`, so make those in Name Manager. This Excel shows the
+  formula with `;` separators, which may be why, but that wasn't tested.
+- **Not exercised in Excel:** the values-only path for names with no address. No test name reached it.

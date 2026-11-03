@@ -29,7 +29,7 @@ Settings > Run diagnostics now also tests the real cell, name and selection path
 `OFFSET` check, first make a name in Formulas > Name Manager called `gs_offset`, referring to
 `=OFFSET($A$1,0,0,3,1)`. The report goes to `diag/latest.json` in the data folder.
 
-- [ ] Diagnostics: every "adapter" row and "OFFSET name made in Name Manager" pass.
+- [x] Diagnostics: every "adapter" row and "OFFSET name made in Name Manager" pass (2026-11-03).
 
 On a blank sheet, enter this:
 
