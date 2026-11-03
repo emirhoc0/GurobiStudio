@@ -50,7 +50,7 @@ OFFLINE = re.compile(
     re.IGNORECASE,
 )
 LOG_EXPIRY = re.compile(r"expires?\s+(?:on\s+)?(\d{4}-\d{2}-\d{2})", re.IGNORECASE)
-NO_EXPIRY = {0, 99991231}
+NO_EXPIRY = 99990000  # Gurobi reports "never" as 0, 99991231 or 99999999
 
 
 def _scrub(text: str) -> str:
@@ -60,7 +60,7 @@ def _scrub(text: str) -> str:
 
 
 def _format_expiry(value, log: str) -> str | None:
-    if isinstance(value, int) and value not in NO_EXPIRY:
+    if isinstance(value, int) and 0 < value < NO_EXPIRY:
         text = str(value)
         return f"{text[:4]}-{text[4:6]}-{text[6:]}"
     match = LOG_EXPIRY.search(log)

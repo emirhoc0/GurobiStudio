@@ -1,0 +1,168 @@
+{
+  "name": "Assignment",
+  "description": "Give each worker one task for the fewest total hours.",
+  "rows": [
+    [
+      "Hours",
+      "Paint",
+      "Wire",
+      "Plumb",
+      "Tile"
+    ],
+    [
+      "Ana",
+      9,
+      2,
+      7,
+      8
+    ],
+    [
+      "Ben",
+      6,
+      4,
+      3,
+      7
+    ],
+    [
+      "Cem",
+      5,
+      8,
+      1,
+      8
+    ],
+    [
+      "Dee",
+      7,
+      6,
+      9,
+      4
+    ],
+    [
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "Assign",
+      "Paint",
+      "Wire",
+      "Plumb",
+      "Tile"
+    ],
+    [
+      "Ana",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "Ben",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "Cem",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "Dee",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "Total hours",
+      "",
+      "",
+      "",
+      ""
+    ]
+  ],
+  "bold": [
+    "A1:E1",
+    "A7:E7",
+    "A13"
+  ],
+  "items": [
+    {
+      "name": "workers",
+      "type": "list",
+      "cellRange": "A2:A5",
+      "indexRanges": [],
+      "readOnly": true
+    },
+    {
+      "name": "tasks",
+      "type": "list",
+      "cellRange": "B1:E1",
+      "indexRanges": [],
+      "readOnly": true
+    },
+    {
+      "name": "hours",
+      "type": "table",
+      "cellRange": "B2:E5",
+      "indexRanges": [
+        "A2:A5",
+        "B1:E1"
+      ],
+      "readOnly": true
+    },
+    {
+      "name": "assign",
+      "type": "table",
+      "cellRange": "B8:E11",
+      "indexRanges": [
+        "A8:A11",
+        "B7:E7"
+      ],
+      "readOnly": false
+    },
+    {
+      "name": "total_hours",
+      "type": "single",
+      "cellRange": "B13",
+      "indexRanges": [],
+      "readOnly": false
+    }
+  ],
+  "model": "from SolverStudio import *\nfrom gurobipy import *\n\nm = Model(\"assignment\")\nx = m.addVars(workers, tasks, vtype=GRB.BINARY, obj=hours)\nm.addConstrs(x.sum(w, \"*\") == 1 for w in workers)\nm.addConstrs(x.sum(\"*\", t) == 1 for t in tasks)\nm.optimize()\n\nfor key in x:\n    assign[key] = round(x[key].X)\ntotal_hours = m.ObjVal\n",
+  "expected": {
+    "objective": 13,
+    "cells": {
+      "B8": 0,
+      "C8": 1,
+      "D8": 0,
+      "E8": 0,
+      "B9": 1,
+      "C9": 0,
+      "D9": 0,
+      "E9": 0,
+      "B10": 0,
+      "C10": 0,
+      "D10": 1,
+      "E10": 0,
+      "B11": 0,
+      "C11": 0,
+      "D11": 0,
+      "E11": 1,
+      "B13": 13
+    }
+  }
+}

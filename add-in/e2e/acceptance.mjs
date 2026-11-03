@@ -275,7 +275,13 @@ await page.getByRole("button", { name: "Check License" }).click();
 await page.getByTestId("license-report").waitFor({ timeout: 90000 });
 const report = await page.getByTestId("license-report").innerText();
 check("Check License reports the Academic license", report.includes("Academic") && !report.includes("size-limited"), report);
+check("license expiry is a real date or absent", !report.includes("9999"), report);
 await page.screenshot({ path: join(SHOTS, "settings.png"), fullPage: true });
+const overflow = await page.evaluate(() => {
+  const pane = document.querySelector('[role="tablist"]').nextElementSibling;
+  return [pane.scrollWidth, pane.clientWidth];
+});
+check("Settings fits the pane", overflow[0] <= overflow[1], overflow.join(" > "));
 
 // ---- Helper settings
 await page.getByLabel("Keep runs").fill("7");
@@ -329,6 +335,94 @@ await page.waitForTimeout(600);
 check("a newer schema is left untouched", (await page.evaluate(() => localStorage.getItem("gs-mock-state"))) === garbage);
 await page.evaluate(() => localStorage.removeItem("gs-mock-state"));
 await openPane();
+
+// ---- Examples (acceptance 1): every one inserts, prompts, solves and matches brute force
+const examples = Object.fromEntries(
+  ["diet", "transportation", "knapsack", "assignment"].map((n) => [
+    n,
+    JSON.parse(readFileSync(join(ROOT, "examples", `${n}.json`), "utf8")),
+  ]),
+);
+const close = (a, b) => typeof a === "number" && Math.abs(a - b) < 1e-6;
+for (const example of Object.values(examples)) {
+  const { name, expected } = example;
+  await page.getByRole("tab", { name: "Model" }).click();
+  await page.getByRole("button", { name: "File" }).click();
+  await page.getByRole("menuitem", { name: "View Examples" }).click();
+  if (name === "Diet") await page.screenshot({ path: join(SHOTS, "examples-dialog.png") });
+  await page.getByRole("button", { name: `Insert ${name}` }).click();
+  await page.getByText(`Model for ${name}`).waitFor();
+  check(`${name}: model shows in the editor`, (await page.locator(".cm-content").innerText()).includes(`Model("${name.toLowerCase()}")`));
+  const chip = await solveAndApprove();
+  check(`${name}: solves to Optimal`, chip === "Optimal", chip);
+  check(`${name}: objective in the log`, /Optimal (objective|solution found)/.test(await log()));
+  const output_ = await log();
+  check(`${name}: changed items are starred`, /Data items: .*\*/.test(output_), output_);
+  const wrong = [];
+  for (const [address, want] of Object.entries(expected.cells)) {
+    const got = (await cell(`${name}!${address}`)) ?? 0; // zero flows may be written as 0
+    if (!close(got, want)) wrong.push(`${address}=${got}, wanted ${want}`);
+  }
+  check(`${name}: cells match the independent answer`, wrong.length === 0, wrong.join("; "));
+  const body = await page.locator("body").innerText();
+  check(`${name}: objective matches`, body.includes(String(+expected.objective.toFixed(4)).slice(0, 5)), body.slice(0, 300));
+}
+await page.screenshot({ path: join(SHOTS, "example-solved.png"), fullPage: true });
+
+// Inserting twice gets a new sheet, not an overwrite.
+await page.getByRole("tab", { name: "Model" }).click();
+await page.getByRole("button", { name: "File" }).click();
+await page.getByRole("menuitem", { name: "View Examples" }).click();
+await page.getByRole("button", { name: "Insert Diet" }).click();
+await page.getByText("Model for Diet 2").waitFor();
+check("a second insert uses a new sheet", true);
+await page.waitForTimeout(500);
+const savedExample = await page.evaluate(() => JSON.parse(localStorage.getItem("gs-mock-state")));
+check("an inserted example is saved", Object.values(savedExample.sheets).some((s) => s.name === "Diet 2" && s.model?.includes('Model("diet")')));
+await page.evaluate(() => {
+  localStorage.removeItem("gs-mock-state");
+});
+await openPane();
+
+// ---- SolverStudio-style model (acceptance 6): in-place changes and reassignment both write back
+await setCells({ A1: "p", A2: "q", B1: 2, B2: 3, E1: 4 });
+await setItems([
+  item("price", "indexed", "B1:B2", ["A1:A2"]),
+  item("result", "indexed", "C1:C2", ["A1:A2"]),
+  item("factor", "single", "E1"),
+  item("names", "list", "A1:A2", [], true),
+]);
+await setModel(`from SolverStudio import *
+import SolverStudio
+from gurobipy import *
+
+m = Model()
+y = m.addVars(price.keys(), obj=price)
+m.addConstrs(y[k] >= 1 for k in price)
+m.optimize()
+for k in price:
+    result[k] = y[k].X * factor    # changed in place
+factor = factor + 1                # reassigned
+names.append("r")                  # read-only: warns, isn't written
+print("shim", SolverStudio.price is price)
+`);
+const style = await solveAndApprove();
+check("SolverStudio-style model solves", style === "Optimal", style);
+check("in-place changes write back", (await cell("C1")) === 4 && (await cell("C2")) === 4);
+check("reassignment writes back", (await cell("E1")) === 5);
+check("read-only item isn't written", (await cell("A1")) === "p" && (await page.getByText("names changed but is read-only").first().isVisible()));
+check("the shim sees the same objects", (await log()).includes("shim True"));
+await setItems([]);
+
+// ---- Dark theme follows the system
+await page.emulateMedia({ colorScheme: "dark" });
+await page.getByRole("tab", { name: "Model" }).click();
+await page.waitForTimeout(200);
+const darkBg = await page.locator(".fui-FluentProvider").first().evaluate((e) => getComputedStyle(e).backgroundColor);
+const rgb = darkBg.match(/\d+/g).slice(0, 3).map(Number);
+check("dark theme applies", Math.max(...rgb) < 80, darkBg);
+await page.screenshot({ path: join(SHOTS, "dark.png"), fullPage: true });
+await page.emulateMedia({ colorScheme: "light" });
 
 //__NEXT__
 check("no uncaught page errors", pageErrors.length === 0, pageErrors.join(" | "));

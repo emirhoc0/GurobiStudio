@@ -122,3 +122,11 @@ export function localize(address: string, sheetName: string): string {
     })
     .join(", ");
 }
+
+/** Excel compares sheet names ignoring case. */
+export function freeSheetName(name: string, taken: string[]): string {
+  const used = new Set(taken.map((t) => t.toLowerCase()));
+  let free = name;
+  for (let i = 2; used.has(free.toLowerCase()); i++) free = `${name} ${i}`;
+  return free;
+}

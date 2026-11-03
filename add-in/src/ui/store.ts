@@ -51,6 +51,8 @@ export const useTab = tabStore.use;
 export const runStore = createStore<RunState>({ phase: "idle", log: [] });
 export const useRun = runStore.use;
 
+export const examplesOpenStore = createStore(false);
+
 export const jumpStore = createStore<number | null>(null); // a model line the editor should select
 
 export interface ConfirmRequest {

@@ -1,4 +1,4 @@
-import { parseRef } from "../core/refs";
+import { freeSheetName, parseRef } from "../core/refs";
 import type { Cell, ExcelAdapter, RangeWrite, RefResult } from "./adapter";
 
 const message = (e: unknown) => (e as Error).message;
@@ -230,6 +230,29 @@ export const officeAdapter: ExcelAdapter = {
       const sheets = ctx.workbook.worksheets.load("items/id,items/name");
       await ctx.sync();
       return sheets.items.map((s) => ({ id: s.id, name: s.name }));
+    }),
+
+  addSheet: (name, rows, bold) =>
+    Excel.run(async (ctx) => {
+      const sheets = ctx.workbook.worksheets.load("items/name");
+      await ctx.sync();
+      const free = freeSheetName(
+        name,
+        sheets.items.map((s) => s.name),
+      );
+      const sheet = ctx.workbook.worksheets.add(free).load("id,name");
+      const range = sheet.getRangeByIndexes(0, 0, rows.length, rows[0].length);
+      range.values = rows;
+      for (const address of bold) sheet.getRange(address).format.font.bold = true;
+      range.format.autofitColumns();
+      await ctx.sync();
+      return { id: sheet.id, name: sheet.name };
+    }),
+
+  activateSheet: (sheetId) =>
+    Excel.run(async (ctx) => {
+      ctx.workbook.worksheets.getItem(sheetId).activate();
+      await ctx.sync();
     }),
 
   officeDark: () => Office.context.officeTheme?.isDarkTheme ?? null,

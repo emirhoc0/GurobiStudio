@@ -1,0 +1,140 @@
+{
+  "name": "Diet",
+  "description": "Meet nutrition minimums at the lowest cost. A linear program.",
+  "rows": [
+    [
+      "Food",
+      "Cost",
+      "Protein",
+      "Iron",
+      "Calcium",
+      "Amount"
+    ],
+    [
+      "Lentils",
+      3,
+      18,
+      3,
+      2,
+      ""
+    ],
+    [
+      "Rice",
+      2,
+      4,
+      1,
+      1,
+      ""
+    ],
+    [
+      "Yogurt",
+      4,
+      10,
+      1,
+      12,
+      ""
+    ],
+    [
+      "Spinach",
+      5,
+      3,
+      4,
+      10,
+      ""
+    ],
+    [
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "Minimum",
+      "",
+      50,
+      15,
+      30,
+      ""
+    ],
+    [
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "Total cost",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ]
+  ],
+  "bold": [
+    "A1:F1",
+    "A7",
+    "A9"
+  ],
+  "items": [
+    {
+      "name": "cost",
+      "type": "indexed",
+      "cellRange": "B2:B5",
+      "indexRanges": [
+        "A2:A5"
+      ],
+      "readOnly": true
+    },
+    {
+      "name": "nutrition",
+      "type": "table",
+      "cellRange": "C2:E5",
+      "indexRanges": [
+        "A2:A5",
+        "C1:E1"
+      ],
+      "readOnly": true
+    },
+    {
+      "name": "minimum",
+      "type": "indexed",
+      "cellRange": "C7:E7",
+      "indexRanges": [
+        "C1:E1"
+      ],
+      "readOnly": true
+    },
+    {
+      "name": "amount",
+      "type": "indexed",
+      "cellRange": "F2:F5",
+      "indexRanges": [
+        "A2:A5"
+      ],
+      "readOnly": false
+    },
+    {
+      "name": "total_cost",
+      "type": "single",
+      "cellRange": "B9",
+      "indexRanges": [],
+      "readOnly": false
+    }
+  ],
+  "model": "from SolverStudio import *\nfrom gurobipy import *\n\nm = Model(\"diet\")\nx = m.addVars(cost.keys(), obj=cost)\nfor n in minimum:\n    m.addConstr(quicksum(nutrition[f, n] * x[f] for f in cost) >= minimum[n])\nm.optimize()\n\nfor f in cost:\n    amount[f] = x[f].X\ntotal_cost = m.ObjVal\n",
+  "expected": {
+    "objective": 18.41645885286783,
+    "cells": {
+      "F2": 2.1820448877805485,
+      "F3": 0.0,
+      "F4": 0.47381546134663344,
+      "F5": 1.9950124688279303,
+      "B9": 18.41645885286783
+    }
+  }
+}

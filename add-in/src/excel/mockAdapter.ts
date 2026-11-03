@@ -1,12 +1,7 @@
-import { columnLetters, parseRef, rectOf } from "../core/refs";
+import { columnLetters, freeSheetName, parseRef, rectOf } from "../core/refs";
 import type { Cell, ExcelAdapter, RangeRef, RangeWrite, RefResult } from "./adapter";
 
 const ERROR_TEXT = /^#(N\/A|REF!|VALUE!|DIV\/0!|NAME\?|NUM!|NULL!)$/;
-const SHEETS = [
-  { id: "mock-sheet", name: "Sheet1" },
-  { id: "mock-sheet-2", name: "Sheet2" },
-];
-
 const MOCK_STATE_KEY = "gs-mock-state";
 const storage = () => (typeof localStorage === "undefined" ? null : localStorage); // reload = reopen
 
@@ -39,14 +34,21 @@ export function createMockAdapter(initial: Record<string, Cell> = {}, options: M
   const names = new Map(Object.entries(options.names ?? {}));
   const tables = new Map(Object.entries(options.tables ?? {}));
   const formulas = new Map<string, string>(); // tests add a cell's formula here
+  const boldRanges: string[] = [];
   const listeners: (() => void)[] = [];
-  let active = SHEETS[0];
+  const sheets = [
+    { id: "mock-sheet", name: "Sheet1" },
+    { id: "mock-sheet-2", name: "Sheet2" },
+  ];
+  let active = sheets[0];
   let selected = "Sheet1!A1";
 
   const sheetOf = (name: string | undefined, sheetId: string) =>
-    name ? SHEETS.find((s) => s.name === name)?.id : sheetId;
-  const key = (sheetId: string, address: string) =>
-    sheetId === "mock-sheet-2" ? `Sheet2!${address}` : address;
+    name ? sheets.find((s) => s.name === name)?.id : sheetId;
+  const key = (sheetId: string, address: string) => {
+    const other = sheets.slice(1).find((s) => s.id === sheetId);
+    return other ? `${other.name}!${address}` : address;
+  };
 
   const read = (ref: RangeRef): RefResult => {
     const values = cellsOf(ref.address).map((row) =>
@@ -120,7 +122,7 @@ export function createMockAdapter(initial: Record<string, Cell> = {}, options: M
       if (/^[a-z]{1,3}\d+$/i.test(name) || /^[rc]$/i.test(name)) {
         throw new Error(`Excel does not allow ${name} as a name.`);
       }
-      const sheet = SHEETS.find((s) => s.id === ref.sheetId)?.name ?? "Sheet1";
+      const sheet = sheets.find((s) => s.id === ref.sheetId)?.name ?? "Sheet1";
       names.set(name, `${sheet}!${ref.address}`);
     },
     formulaCells: async (writes) =>
@@ -151,7 +153,28 @@ export function createMockAdapter(initial: Record<string, Cell> = {}, options: M
     },
     loadState: async () => storage()?.getItem(MOCK_STATE_KEY) ?? null,
     saveState: async (text) => storage()?.setItem(MOCK_STATE_KEY, text),
-    listSheets: async () => SHEETS,
+    listSheets: async () => sheets,
+    addSheet: async (name, rows, bold) => {
+      const sheet = {
+        id: `mock-sheet-${sheets.length + 1}`,
+        name: freeSheetName(
+          name,
+          sheets.map((s) => s.name),
+        ),
+      };
+      sheets.push(sheet);
+      rows.forEach((row, r) =>
+        row.forEach((value, c) => {
+          if (value !== "") cells.set(key(sheet.id, columnLetters(c + 1) + (r + 1)), value);
+        }),
+      );
+      bold.forEach((address) => boldRanges.push(`${sheet.name}!${address}`));
+      return sheet;
+    },
+    activateSheet: async (sheetId) => {
+      active = sheets.find((s) => s.id === sheetId) ?? active;
+      listeners.forEach((l) => l());
+    },
     officeDark: () => null,
   };
 
@@ -159,13 +182,14 @@ export function createMockAdapter(initial: Record<string, Cell> = {}, options: M
     adapter,
     cells,
     formulas,
+    boldRanges,
     names,
     tables,
     select: (address: string) => {
       selected = address;
     },
     activate: (name: string) => {
-      active = SHEETS.find((s) => s.name === name) ?? active;
+      active = sheets.find((s) => s.name === name) ?? active;
       listeners.forEach((l) => l());
     },
   };

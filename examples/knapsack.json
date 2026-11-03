@@ -1,0 +1,133 @@
+{
+  "name": "Knapsack",
+  "description": "Choose items to carry within a weight limit. A small integer program.",
+  "rows": [
+    [
+      "Item",
+      "Value",
+      "Weight",
+      "Take"
+    ],
+    [
+      "Tent",
+      92,
+      23,
+      ""
+    ],
+    [
+      "Stove",
+      57,
+      31,
+      ""
+    ],
+    [
+      "Rope",
+      49,
+      29,
+      ""
+    ],
+    [
+      "Lantern",
+      68,
+      44,
+      ""
+    ],
+    [
+      "Radio",
+      60,
+      53,
+      ""
+    ],
+    [
+      "First aid kit",
+      43,
+      38,
+      ""
+    ],
+    [
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "Capacity",
+      110,
+      "",
+      ""
+    ],
+    [
+      "Total value",
+      "",
+      "",
+      ""
+    ]
+  ],
+  "bold": [
+    "A1:D1",
+    "A9:A10"
+  ],
+  "items": [
+    {
+      "name": "names",
+      "type": "list",
+      "cellRange": "A2:A7",
+      "indexRanges": [],
+      "readOnly": true
+    },
+    {
+      "name": "value",
+      "type": "indexed",
+      "cellRange": "B2:B7",
+      "indexRanges": [
+        "A2:A7"
+      ],
+      "readOnly": true
+    },
+    {
+      "name": "weight",
+      "type": "indexed",
+      "cellRange": "C2:C7",
+      "indexRanges": [
+        "A2:A7"
+      ],
+      "readOnly": true
+    },
+    {
+      "name": "capacity",
+      "type": "single",
+      "cellRange": "B9",
+      "indexRanges": [],
+      "readOnly": true
+    },
+    {
+      "name": "take",
+      "type": "indexed",
+      "cellRange": "D2:D7",
+      "indexRanges": [
+        "A2:A7"
+      ],
+      "readOnly": false
+    },
+    {
+      "name": "total_value",
+      "type": "single",
+      "cellRange": "B10",
+      "indexRanges": [],
+      "readOnly": false
+    }
+  ],
+  "model": "from SolverStudio import *\nfrom gurobipy import *\n\nm = Model(\"knapsack\")\nx = m.addVars(names, vtype=GRB.BINARY, obj=value)\nm.ModelSense = GRB.MAXIMIZE\nm.addConstr(x.prod(weight) <= capacity)\nm.optimize()\n\nfor n in names:\n    take[n] = round(x[n].X)\ntotal_value = m.ObjVal\n",
+  "expected": {
+    "objective": 217,
+    "cells": {
+      "D2": 1,
+      "D3": 1,
+      "D4": 0,
+      "D5": 1,
+      "D6": 0,
+      "D7": 0,
+      "B10": 217
+    }
+  }
+}

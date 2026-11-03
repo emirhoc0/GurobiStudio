@@ -1,0 +1,181 @@
+{
+  "name": "Transportation",
+  "description": "Ship from plants to customers at the lowest cost.",
+  "rows": [
+    [
+      "Cost",
+      "North",
+      "East",
+      "South"
+    ],
+    [
+      "Izmir",
+      4,
+      6,
+      9
+    ],
+    [
+      "Bursa",
+      5,
+      3,
+      7
+    ],
+    [
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "Plant",
+      "Supply",
+      "",
+      ""
+    ],
+    [
+      "Izmir",
+      35,
+      "",
+      ""
+    ],
+    [
+      "Bursa",
+      45,
+      "",
+      ""
+    ],
+    [
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "Customer",
+      "Demand",
+      "",
+      ""
+    ],
+    [
+      "North",
+      20,
+      "",
+      ""
+    ],
+    [
+      "East",
+      30,
+      "",
+      ""
+    ],
+    [
+      "South",
+      25,
+      "",
+      ""
+    ],
+    [
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "Flow",
+      "North",
+      "East",
+      "South"
+    ],
+    [
+      "Izmir",
+      "",
+      "",
+      ""
+    ],
+    [
+      "Bursa",
+      "",
+      "",
+      ""
+    ],
+    [
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "Total cost",
+      "",
+      "",
+      ""
+    ]
+  ],
+  "bold": [
+    "A1:D1",
+    "A5:B5",
+    "A9:B9",
+    "A14:D14",
+    "A18"
+  ],
+  "items": [
+    {
+      "name": "cost",
+      "type": "table",
+      "cellRange": "B2:D3",
+      "indexRanges": [
+        "A2:A3",
+        "B1:D1"
+      ],
+      "readOnly": true
+    },
+    {
+      "name": "supply",
+      "type": "indexed",
+      "cellRange": "B6:B7",
+      "indexRanges": [
+        "A6:A7"
+      ],
+      "readOnly": true
+    },
+    {
+      "name": "demand",
+      "type": "indexed",
+      "cellRange": "B10:B12",
+      "indexRanges": [
+        "A10:A12"
+      ],
+      "readOnly": true
+    },
+    {
+      "name": "flow",
+      "type": "table",
+      "cellRange": "B15:D16",
+      "indexRanges": [
+        "A15:A16",
+        "B14:D14"
+      ],
+      "readOnly": false
+    },
+    {
+      "name": "total_cost",
+      "type": "single",
+      "cellRange": "B18",
+      "indexRanges": [],
+      "readOnly": false
+    }
+  ],
+  "model": "from SolverStudio import *\nfrom gurobipy import *\n\nm = Model(\"transportation\")\nx = m.addVars(supply.keys(), demand.keys(), obj=cost)\nm.addConstrs(x.sum(p, \"*\") <= supply[p] for p in supply)\nm.addConstrs(x.sum(\"*\", c) == demand[c] for c in demand)\nm.optimize()\n\nfor key in x:\n    flow[key] = x[key].X\ntotal_cost = m.ObjVal\n",
+  "expected": {
+    "objective": 365,
+    "cells": {
+      "B15": 20,
+      "C15": 0,
+      "D15": 10,
+      "B16": 0,
+      "C16": 30,
+      "D16": 15,
+      "B18": 365
+    }
+  }
+}

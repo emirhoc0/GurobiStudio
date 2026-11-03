@@ -12,7 +12,7 @@ import {
 import { CodeEditor } from "./CodeEditor";
 import { viewWorkingFiles } from "./OutputTab";
 import { popOut } from "./popOut";
-import { itemsStore, jumpStore, MODEL_TEMPLATE, modelStore } from "./store";
+import { examplesOpenStore, itemsStore, jumpStore, MODEL_TEMPLATE, modelStore } from "./store";
 import { useDark } from "./Themed";
 import { useActiveSheet } from "./useActiveSheet";
 
@@ -36,6 +36,7 @@ export function ModelTab() {
           <MenuPopover>
             <MenuList>
               <MenuItem onClick={() => void viewWorkingFiles()}>View Working Files</MenuItem>
+              <MenuItem onClick={() => examplesOpenStore.set(true)}>View Examples</MenuItem>
             </MenuList>
           </MenuPopover>
         </Menu>

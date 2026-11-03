@@ -13,7 +13,7 @@ import { notify, settingsStore } from "./store";
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <section style={{ display: "grid", gap: 8 }}>
+    <section style={{ display: "grid", gap: 8, gridTemplateColumns: "minmax(0, 1fr)" }}>
       <Text weight="semibold">{title}</Text>
       {children}
     </section>
@@ -143,7 +143,13 @@ function HelperSettings() {
   };
   return (
     <Section title="Helper settings for this Mac">
-      <Field label="Python path" hint={`Blank uses ${values.default_python}`}>
+      <Field
+        label="Python path"
+        hint={{
+          children: `Blank uses ${values.default_python}`,
+          style: { overflowWrap: "anywhere" },
+        }}
+      >
         <Input
           size="small"
           value={values.python_path}
@@ -228,7 +234,7 @@ function Diagnostics({ inExcel }: { inExcel: boolean }) {
 
 export function SettingsTab({ inExcel }: { inExcel: boolean }) {
   return (
-    <div style={{ display: "grid", gap: 20 }}>
+    <div style={{ display: "grid", gap: 20, gridTemplateColumns: "minmax(0, 1fr)" }}>
       <WorkbookSettings />
       <License />
       <HelperSettings />

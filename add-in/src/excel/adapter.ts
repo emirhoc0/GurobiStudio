@@ -52,6 +52,9 @@ export interface ExcelAdapter {
   loadState(): Promise<string | null>;
   saveState(text: string): Promise<void>;
   listSheets(): Promise<{ id: string; name: string }[]>;
+  /** Adds a sheet holding rows from A1, using a free name based on name. Doesn't activate it. */
+  addSheet(name: string, rows: Cell[][], bold: string[]): Promise<{ id: string; name: string }>;
+  activateSheet(sheetId: string): Promise<void>;
   /** Excel's own theme, or null when it doesn't say. */
   officeDark(): boolean | null;
 }

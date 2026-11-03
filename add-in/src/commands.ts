@@ -1,7 +1,7 @@
 import { solve, stop } from "./core/solve";
 import { excel } from "./excel";
 import { viewWorkingFiles } from "./ui/OutputTab";
-import { setTab, type TabName } from "./ui/store";
+import { examplesOpenStore, setTab, type TabName } from "./ui/store";
 
 type Event = Office.AddinCommands.Event;
 
@@ -30,7 +30,10 @@ export function registerCommands() {
     }
   });
   Office.actions.associate("openSettings", open("settings"));
-  Office.actions.associate("openExamples", open("model"));
+  Office.actions.associate("openExamples", (event: Event) => {
+    examplesOpenStore.set(true);
+    return showPane("model", event);
+  });
   Office.actions.associate("openWorkingFiles", async (event: Event) => {
     try {
       await viewWorkingFiles();

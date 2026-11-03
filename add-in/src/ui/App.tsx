@@ -5,6 +5,7 @@ import { solve, stop } from "../core/solve";
 import { excel } from "../excel";
 import { ConfirmDialog, Notices } from "./ConfirmDialog";
 import { DataItemsTab } from "./DataItemsTab";
+import { ExamplesDialog } from "./ExamplesDialog";
 import { ModelTab } from "./ModelTab";
 import { OutputTab } from "./OutputTab";
 import { SettingsTab } from "./SettingsTab";
@@ -74,6 +75,7 @@ export function App({ inExcel }: { inExcel: boolean }) {
         {tab === "output" && <OutputTab />}
       </div>
       <ConfirmDialog />
+      <ExamplesDialog />
       <Notices />
     </Themed>
   );

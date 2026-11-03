@@ -40,8 +40,9 @@ def test_size_error_alone_means_restricted():
     assert parse_license("Some new banner text", {"size_ok": False})["restricted"]
 
 
-def test_no_expiry_values_are_hidden():
-    assert parse_license("", {"expiry": 99991231, "size_ok": True})["expiry"] is None
+@pytest.mark.parametrize("never", [0, 99991231, 99999999])
+def test_no_expiry_values_are_hidden(never):
+    assert parse_license("", {"expiry": never, "size_ok": True})["expiry"] is None
 
 
 @pytest.mark.parametrize(
@@ -99,3 +100,4 @@ def test_retention_setting_prunes(api):
     from pathlib import Path
 
     assert len([p for p in Path(folder).parent.iterdir() if p.is_dir()]) == 2
+
