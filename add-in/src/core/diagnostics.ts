@@ -33,8 +33,18 @@ async function probe(
 async function cleanup() {
   await Excel.run(async (ctx) => {
     for (const n of NAMES) ctx.workbook.names.getItemOrNullObject(n).delete();
-    for (const s of [SHEET, SHEET2]) ctx.workbook.worksheets.getItemOrNullObject(s).delete();
     await ctx.sync().catch(() => undefined);
+    for (const name of [SHEET, SHEET2, `${SHEET2}x`]) {
+      const sheet = ctx.workbook.worksheets.getItemOrNullObject(name);
+      sheet.load("name");
+      await ctx.sync();
+      if (sheet.isNullObject) continue;
+      // Excel won't delete a very hidden sheet.
+      sheet.visibility = Excel.SheetVisibility.visible;
+      await ctx.sync();
+      sheet.delete();
+      await ctx.sync();
+    }
     const parts = ctx.workbook.customXmlParts.getByNamespace(NS);
     parts.load("items");
     await ctx.sync();
@@ -221,7 +231,7 @@ export async function runDiagnostics(): Promise<{ results: ProbeResult[]; saved?
 
   await probe(results, "OFFSET-style dynamic name", () =>
     Excel.run(async (ctx) => {
-      ctx.workbook.names.add(NAMES[2], `=OFFSET(${SHEET}!$A$1,0,0,2,1)`);
+      ctx.workbook.names.add(NAMES[2], `=OFFSET('${SHEET}'!$A$1,0,0,2,1)`);
       await ctx.sync();
       const named = ctx.workbook.names.getItem(NAMES[2]);
       named.load("type,formula,value");
@@ -278,12 +288,19 @@ export async function runDiagnostics(): Promise<{ results: ProbeResult[]; saved?
   results.push({
     name: "temporary sheet and names removed",
     ...(await Excel.run(async (ctx) => {
-      const s = ctx.workbook.worksheets.getItemOrNullObject(SHEET);
+      const sheets = ctx.workbook.worksheets;
       const parts = ctx.workbook.customXmlParts.getByNamespace(NS);
+      const names = NAMES.map((n) => ctx.workbook.names.getItemOrNullObject(n));
       parts.load("items");
-      s.load("name");
+      sheets.load("items/name");
+      names.forEach((n) => n.load("name"));
       await ctx.sync();
-      return { ok: s.isNullObject && parts.items.length === 0 };
+      const leftovers = [
+        ...sheets.items.map((s) => s.name).filter((n) => n.startsWith("_gsdiag")),
+        ...names.filter((n) => !n.isNullObject).map((n) => n.name),
+        ...parts.items.map(() => "XML part"),
+      ];
+      return { ok: leftovers.length === 0, detail: leftovers };
     })),
   });
 

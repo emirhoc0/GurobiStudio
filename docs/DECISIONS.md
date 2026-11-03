@@ -43,9 +43,23 @@ Each entry says what was chosen and why. "Proven" means tested in real Excel for
 - **Not covered:** a program running as you outside the sandbox can read those files anyway. It can
   already run anything as you, so this adds no new risk. No peer-UID check on loopback.
 
-## To be settled by M1 diagnostics
+## Proven by M1 diagnostics (Excel 16.112.4 for Mac)
+
+- **Persistence:** a custom XML part round-trips tabs, CRLF, non-ASCII and `]]>` exactly within a
+  session. Save-and-reopen is still to be proven at M5. A very hidden sheet also works as a fallback,
+  but Excel refuses to delete one until it is made visible.
+- **Excel Tables:** a name defined as `=Table[Col]` has type `Range`, and both it and the table API
+  grow with the table (`B2:B3` to `B2:B4`). Acceptance test 7 should work through a plain named range.
+- **Origin header:** `https://localhost:8765`, so the strict check stands.
+- **Write semantics:** `null` keeps a cell, including a formula; `""` clears it.
+- **Cell values:** `#N/A` reads as type `Error`; `3` serializes as `3`; booleans stay booleans.
+- **Streaming:** `fetch` delivers SSE incrementally (chunks at 11, 411, 822 and 1224 ms).
+- **Dialog:** two-way messaging works, so the pop-out editor can use `messageChild`.
+- **Theme:** `Office.context.officeTheme` is available, with `isDarkTheme`.
+- **Worksheet id:** survives a rename.
+
+## Still to settle
 
 - Ribbon placement (`TabData`, then custom tab, then Home).
-- Persistence: custom XML part or very hidden sheet.
-- `Table1[Col]` and `OFFSET`-style named ranges.
-- The `Origin` header Excel's web view really sends.
+- `OFFSET`-style names. The first probe's formula was rejected when creating the name, so reading
+  one is untested.
