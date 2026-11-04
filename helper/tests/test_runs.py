@@ -246,6 +246,21 @@ def test_trust_required_then_remembered_then_reprompted(api):
     assert api.post("/api/run", json={**body, "workbook_id": "other"}).status_code == 409
 
 
+def test_text_params_need_approval_but_numbers_do_not(api):
+    body = {"model": "x = 1\n", "items": [], "params": {"TimeLimit": 5}, "workbook_id": "wb"}
+    events(api, api.post("/api/run", json={**body, "approved": True}).json()["run_id"])
+    r = api.post("/api/run", json={**body, "params": {"TimeLimit": 60, "MIPGap": 0.1}})
+    assert r.status_code == 200  # a number can't name a file or a server
+    events(api, r.json()["run_id"])
+    for params in ({"LogFile": "/tmp/x"}, {"ComputeServer": "example.com"}):
+        r = api.post("/api/run", json={**body, "params": params})
+        assert r.json() == {"trust_required": True}
+    approved = {**body, "params": {"LogFile": "run.log"}, "approved": True}
+    events(api, api.post("/api/run", json=approved).json()["run_id"])
+    r = api.post("/api/run", json={**body, "params": {"LogFile": "other.log"}})
+    assert r.json() == {"trust_required": True}
+
+
 def test_second_run_while_busy_is_refused(api):
     run_id = start(api, "import time\ntime.sleep(30)\n")
     r = api.post(

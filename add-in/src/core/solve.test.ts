@@ -5,8 +5,9 @@ vi.stubGlobal("document", { querySelector: () => null }); // api.ts reads its to
 
 const { createMockAdapter } = await import("../excel/mockAdapter");
 const { solve, stop } = await import("./solve");
-const { confirmStore, itemsStore, runStore } = await import("../ui/store");
+const { confirmStore, itemsStore, runStore, settingsStore } = await import("../ui/store");
 const { loadWorkbook } = await import("./persist");
+const { DEFAULT_SETTINGS } = await import("./state");
 
 const encoder = new TextEncoder();
 const sse = (...events: unknown[]) => events.map((e) => `data: ${JSON.stringify(e)}\n\n`).join("");
@@ -203,6 +204,25 @@ it("shows a lone line soon, even if nothing follows it", async () => {
   await vi.waitFor(() => expect(runStore.get().log).toContain("building"), { timeout: 1000 });
   finish();
   await solving;
+});
+
+it("shows text parameters from the workbook in the run prompt, but not numbers", async () => {
+  settingsStore.set({
+    ...settingsStore.get(),
+    timeLimit: "60",
+    custom: [{ key: "LogFile", value: "/tmp/x" }],
+  });
+  route({ "/api/run": () => json({ trust_required: true }, 409) });
+  let code: string | undefined;
+  const unsubscribe = confirmStore.subscribe(() => {
+    code = confirmStore.get()?.code;
+    confirmStore.get()?.resolve(false);
+    unsubscribe();
+  });
+  await solve(excelWith());
+  settingsStore.set(DEFAULT_SETTINGS);
+  expect(code).toContain('# LogFile = "/tmp/x"');
+  expect(code).not.toContain("TimeLimit");
 });
 
 function item(name: string, cellRange: string) {

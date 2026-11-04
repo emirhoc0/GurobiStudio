@@ -8,7 +8,7 @@ Excel for Mac add-in (Office.js) plus a local Python helper that runs gurobipy m
 
 ## Commands
 
-- Install or update everything: `scripts/install.sh` (env: `GS_PORT`, `GS_PLACEMENT=data|custom|home`, `GS_LAUNCH_AGENT=1`)
+- Install or update everything: `scripts/install.sh` (env: `GS_PORT`, `GS_PLACEMENT=data|custom|home`, `GS_LAUNCH_AGENT=0|1`; the login item is on by default, except under Desktop, Documents and Downloads)
 - Run the helper: `scripts/run-helper.sh`. It doesn't auto-reload, so restart it after changing server code.
 - Helper tests: `cd helper && .venv/bin/pytest`, one file: `.venv/bin/pytest tests/test_wire.py`, lint: `.venv/bin/ruff check .`
 - Add-in: `cd add-in && npm run build`, `npm test`, one file: `npx vitest run src/core/sse.test.ts`, `npm run lint`

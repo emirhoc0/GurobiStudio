@@ -69,7 +69,7 @@ def create_app(
     @app.post("/api/run")
     async def start_run(request: Request):
         spec = await request.json()
-        fingerprint = trust.fingerprint(spec["model"], spec["workbook_id"])
+        fingerprint = trust.fingerprint(spec["model"], spec["workbook_id"], spec.get("params"))
         if not trust.is_trusted(fingerprint):
             if not spec.get("approved"):
                 return JSONResponse({"trust_required": True}, 409)

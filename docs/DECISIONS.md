@@ -135,8 +135,10 @@ Each entry says what was chosen and why. "Proven" means tested in real Excel for
   template first.
 - **`npm ci` is retried once in install.** It failed once with `ENOTEMPTY` deleting `node_modules`, and
   the retry passed. What touched the folder wasn't identified.
-- **The login item is opt-in** (`GS_LAUNCH_AGENT=1`). A repo under `~/Desktop` may hit macOS privacy
-  limits for launchd jobs. Not yet tested, see `docs/TESTING.md`.
+- **The login item is on by default**, replacing opt-in, because the helper serves the pane and the
+  ribbon buttons. With it off they just fail to load, with no badge to explain why. `GS_LAUNCH_AGENT=0`
+  opts out. A repo under `~/Desktop`, `~/Documents` or `~/Downloads` stays manual unless
+  `GS_LAUNCH_AGENT=1`, since macOS may limit launchd jobs there. That limit wasn't tested.
 - **Known issue: the first Show Model click after reopening a workbook does nothing.** A second click
   opens the pane. Seen every time in real Excel, 5 of 5 tries. Solve Model as the first click worked
   then, but on two freshly opened workbooks on 2026-11-03 it showed no pane within 12 s, and a second
@@ -154,6 +156,19 @@ Each entry says what was chosen and why. "Proven" means tested in real Excel for
 - **The page key is not stored in a saved workbook.** Searched the unzipped file.
 - **The pop-out's short edits reach the pane.** The size limit of `messageParent` was not tested in real
   Excel. The 300 KB test only covers the browser mock.
+
+## Going public
+
+- **Approval covers text-valued Gurobi parameters.** They come from the workbook, and some name a file
+  or a server (`LogFile`, `ComputeServer`), so they join the fingerprint and appear in the prompt.
+  Numbers can't do that, so changing `TimeLimit` doesn't prompt again. Chosen over a list of dangerous
+  names, which would go stale with new Gurobi versions.
+- **`install.sh` checks certificate trust itself.** `office-addin-dev-certs install` exits 0 when it
+  fails to install the CA, which would report success and leave a pane that can't load.
+- **The pane warns when it isn't in Excel.** If `office.js` can't load, it falls back to the mock
+  adapter, which browser tests rely on. Inside Excel that looked normal while nothing was saved.
+- **The README recommends an academic WLS license.** A named-user license needs `grbgetkey`, which the
+  pip package doesn't include.
 
 ## Big data
 

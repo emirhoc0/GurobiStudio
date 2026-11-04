@@ -122,9 +122,16 @@ Light theme and install:
 - [ ] Excel in light mode, and switching while the pane is open.
 - [x] `scripts/install.sh` twice: exit 0, with the same manifest, page key, token and certificate, and
       no certificate prompt (2026-11-03).
-- [ ] `GS_LAUNCH_AGENT=1 scripts/install.sh`: the helper runs after login, and `scripts/uninstall.sh`
-      removes it. Never run. Stop any running helper first, because they share a port. Then check
-      `helper.log` in the data folder, since macOS may block a launchd job from reading `~/Desktop`.
+- [x] Install from a folder under `~` starts the login item: it answers on the port, finds the license,
+      restarts after `kill -9`, and survives a reinstall after `launchctl bootout`. `GS_LAUNCH_AGENT=0`
+      removes it (2026-11-04).
+- [x] Install under `~/Desktop` stays manual and says why (2026-11-04).
+- [x] Install from a clean copy with empty npm and pip caches, and each preflight failure (no Python, no
+      Node, old Node, Excel never opened, blocked folder, untrusted certificate) gives its message
+      (2026-11-04). The throwaway `HOME` meant the keychain step couldn't succeed there.
+- [ ] The helper actually starts after logging out and back in, and `scripts/uninstall.sh` removes it.
+- [ ] Full setup from the README on another person's Mac, including the Excel prompts.
+- [ ] A workbook saved on one Mac opens and solves on another, with the approval prompt.
 
 ## Big data
 

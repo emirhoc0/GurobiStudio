@@ -79,6 +79,14 @@ async function protectFormulas(
   };
 }
 
+/** Text parameters can name a file or a server, and they come from the workbook, so show them. */
+function withTextParams(model: string, params: Record<string, string | number>): string {
+  const text = Object.entries(params).filter(([, value]) => typeof value === "string");
+  if (!text.length) return model;
+  const lines = text.map(([key, value]) => `# ${key} = ${JSON.stringify(value)}`);
+  return `# Gurobi parameters set by this workbook:\n${lines.join("\n")}\n\n${model}`;
+}
+
 // Reading a large sheet takes a while, and Stop has no run to cancel until the helper names one.
 let stopRequested = false;
 
@@ -135,6 +143,7 @@ export async function solve(excel: ExcelAdapter) {
   runStore.set({ ...runStore.get(), log: blankNotes(built), warnings: readWarnings });
 
   const model = modelStore.get()[sheetId] ?? MODEL_TEMPLATE;
+  const params = buildParams(settingsStore.get());
   const startRun = (approved: boolean) =>
     apiFetch("/api/run", {
       method: "POST",
@@ -146,7 +155,7 @@ export async function solve(excel: ExcelAdapter) {
           value: b.value,
           readOnly: b.item.readOnly,
         })),
-        params: buildParams(settingsStore.get()),
+        params,
         workbook_id: workbookIdStore.get(),
         approved,
       }),
@@ -158,7 +167,7 @@ export async function solve(excel: ExcelAdapter) {
       const allowed = await askConfirm({
         title: "Run this model?",
         body: "Models run as Python with your full access. This code is new or has changed, so read it before running it.",
-        code: model,
+        code: withTextParams(model, params),
         confirm: "Run",
         cancel: "Cancel",
       });

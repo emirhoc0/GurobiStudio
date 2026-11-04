@@ -195,8 +195,12 @@ class TrustStore:
             return set()
 
     @staticmethod
-    def fingerprint(model: str, workbook_id: str) -> str:
-        return hashlib.sha256(f"{workbook_id}\0{model}".encode()).hexdigest()
+    def fingerprint(model: str, workbook_id: str, params: dict | None = None) -> str:
+        # Text values can be a path or a server (LogFile, ComputeServer), so approval covers them.
+        # Numbers can't, so changing TimeLimit doesn't prompt again.
+        text = sorted((k, v) for k, v in (params or {}).items() if isinstance(v, str))
+        extra = f"\0{json.dumps(text)}" if text else ""
+        return hashlib.sha256(f"{workbook_id}\0{model}{extra}".encode()).hexdigest()
 
     def is_trusted(self, fingerprint: str) -> bool:
         return fingerprint in self._load()

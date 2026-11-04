@@ -46,6 +46,12 @@ export function App({ inExcel }: { inExcel: boolean }) {
       <div style={{ padding: "8px 12px 0", display: "flex", justifyContent: "flex-start" }}>
         <HelperStatus />
       </div>
+      {!inExcel && (
+        <Text role="alert" size={200} style={{ padding: "4px 12px", color: "#c50f1f" }}>
+          Not connected to Excel, so nothing here reaches a workbook or is saved. If this is inside
+          Excel, check your internet connection and reopen the pane.
+        </Text>
+      )}
       {saveBlocked && (
         <Text role="alert" size={200} style={{ padding: "4px 12px", color: "#c50f1f" }}>
           {saveBlocked}
