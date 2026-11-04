@@ -4,7 +4,8 @@ Build and solve Gurobi optimization models from Excel on a Mac, like SolverStudi
 sheet cells to Python names, write a `gurobipy` model in a pane inside Excel, click Solve, and the
 results are written back to your sheet.
 
-Not affiliated with or endorsed by Gurobi Optimization or Microsoft.
+Not affiliated with or endorsed by Gurobi Optimization or Microsoft. The code is under the
+[MIT License](LICENSE). Gurobi itself needs its own license, see step 2 of Setup.
 
 ## What you need
 
